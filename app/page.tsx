@@ -17,6 +17,14 @@ import TransactionsTable from "./components/transactions-table";
 import { fetchBudgetLimits, fetchBudgets, fetchExpenses } from "./lib/firefly";
 
 const DAYS = 30;
+const CATEGORY_COLORS = [
+  "#22c55e",
+  "#38bdf8",
+  "#f97316",
+  "#a78bfa",
+  "#f43f5e",
+  "#eab308",
+];
 
 function formatDate(value: string) {
   const date = new Date(value);
@@ -183,16 +191,49 @@ export default async function Home({
     ? normalizedEntries.filter((entry) => entry.currencyCode === primaryCurrency)
     : normalizedEntries;
 
-  const byCategory = new Map<string, number>();
+  const totalSpent = focusEntries
+    .filter((entry) => entry.type === "withdrawal" || entry.type === "expense")
+    .reduce((sum, entry) => sum + entry.amountValue, 0);
+  const totalIncome = focusEntries
+    .filter((entry) => entry.type === "deposit" || entry.type === "income")
+    .reduce((sum, entry) => sum + entry.amountValue, 0);
 
-  focusEntries.forEach((entry) => {
+  const byCategory = new Map<string, number>();
+  const categorySource = focusEntries.filter(
+    (entry) => entry.type === "withdrawal" || entry.type === "expense",
+  );
+
+  categorySource.forEach((entry) => {
     const category = entry.category || "Uncategorized";
     byCategory.set(category, (byCategory.get(category) ?? 0) + entry.amountValue);
   });
 
-  const topCategories = Array.from(byCategory.entries())
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
+  const categoryEntries = Array.from(byCategory.entries()).sort(
+    (a, b) => b[1] - a[1],
+  );
+  const topCategories = categoryEntries.slice(0, 5);
+  const otherTotal = categoryEntries
+    .slice(5)
+    .reduce((sum, [, value]) => sum + value, 0);
+  const categorySlices = otherTotal
+    ? [...topCategories, ["Other", otherTotal] as [string, number]]
+    : topCategories;
+  const categoryTotal = categorySlices.reduce((sum, [, value]) => sum + value, 0);
+  const pieStops = categorySlices.reduce(
+    (acc, [, value], index) => {
+      const start = acc.offset;
+      const slice = categoryTotal > 0 ? (value / categoryTotal) * 360 : 0;
+      const end = start + slice;
+      acc.offset = end;
+      acc.stops.push(
+        `${CATEGORY_COLORS[index % CATEGORY_COLORS.length]} ${start.toFixed(
+          2,
+        )}deg ${end.toFixed(2)}deg`,
+      );
+      return acc;
+    },
+    { offset: 0, stops: [] as string[] },
+  );
   const limitByBudgetId = new Map(
     budgetLimits.map((limit) => [limit.budgetId, limit]),
   );
@@ -227,9 +268,7 @@ export default async function Home({
     <Container size="xl" py="xl">
       <Stack gap="xl">
         <Group justify="space-between" align="center" wrap="wrap">
-          <Text c="dimmed">
-            A clean, server-rendered snapshot of your Firefly III spending.
-          </Text>
+
           <DateRangeFilter
             value={
               preset === "last-30-days"
@@ -257,7 +296,26 @@ export default async function Home({
           </Paper>
         ) : null}
 
-        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }}>
+          <Card
+            padding="lg"
+            radius="md"
+            style={{
+              backgroundColor: "var(--app-panel)",
+              border: "1px solid var(--app-border)",
+            }}
+          >
+            <Text size="sm" c="dimmed">
+              Total income
+            </Text>
+            <Text fw={600} size="xl">
+              {formatAmount(totalIncome, primaryCurrency)}
+            </Text>
+            <Text size="xs" c="dimmed" mt={6}>
+              {primaryCurrency ? "Primary currency" : "Mixed currencies"}
+            </Text>
+          </Card>
+
           <Card
             padding="lg"
             radius="md"
@@ -270,7 +328,7 @@ export default async function Home({
               Total spent
             </Text>
             <Text fw={600} size="xl">
-              {formatAmount(primaryTotal, primaryCurrency)}
+              {formatAmount(totalSpent, primaryCurrency)}
             </Text>
             <Text size="xs" c="dimmed" mt={6}>
               {currencyTotals.length > 1
@@ -298,45 +356,6 @@ export default async function Home({
             </Text>
           </Card>
 
-          <Card
-            padding="lg"
-            radius="md"
-            style={{
-              backgroundColor: "var(--app-panel)",
-              border: "1px solid var(--app-border)",
-            }}
-          >
-            <Text size="sm" c="dimmed">
-              Transactions
-            </Text>
-            <Text fw={600} size="xl">
-              {pagination?.total ?? entries.length}
-            </Text>
-            <Text size="xs" c="dimmed" mt={6}>
-              {pagination?.total_pages
-                ? `${pagination.total_pages} pages`
-                : "Latest activity"}
-            </Text>
-          </Card>
-
-          <Card
-            padding="lg"
-            radius="md"
-            style={{
-              backgroundColor: "var(--app-panel)",
-              border: "1px solid var(--app-border)",
-            }}
-          >
-            <Text size="sm" c="dimmed">
-              Focus currency
-            </Text>
-            <Text fw={600} size="xl">
-              {primaryCurrency ?? "Mixed"}
-            </Text>
-            <Text size="xs" c="dimmed" mt={6}>
-              {primaryCurrency ? "Dominant spend" : "Multiple currencies"}
-            </Text>
-          </Card>
         </SimpleGrid>
 
         <Grid gutter="xl">
@@ -370,30 +389,51 @@ export default async function Home({
                 }}
               >
                 <Text fw={600} mb="md">
-                  Top categories
+                  Categories breakdown
                 </Text>
-                <Stack gap="md">
-                  {topCategories.length === 0 ? (
-                    <Text size="sm" c="dimmed">
-                      No category data available yet.
-                    </Text>
-                  ) : null}
-                  {topCategories.map(([name, value]) => (
-                    <div key={name}>
-                      <Group justify="space-between" mb={6}>
-                        <Text size="sm">{name}</Text>
-                        <Text size="sm" fw={600}>
-                          {formatAmount(value, primaryCurrency)}
-                        </Text>
-                      </Group>
-                      <Progress
-                        radius="xl"
-                        value={(value / (topCategories[0]?.[1] || 1)) * 100}
-                        color="teal"
-                      />
-                    </div>
-                  ))}
-                </Stack>
+                {categorySlices.length === 0 ? (
+                  <Text size="sm" c="dimmed">
+                    No category data available yet.
+                  </Text>
+                ) : (
+                  <Stack gap="md">
+                    <div
+                      style={{
+                        width: "100%",
+                        maxWidth: 220,
+                        aspectRatio: "1 / 1",
+                        margin: "0 auto",
+                        borderRadius: "50%",
+                        background: `conic-gradient(${pieStops.stops.join(
+                          ", ",
+                        )})`,
+                        border: "1px solid var(--app-border)",
+                      }}
+                    />
+                    <Stack gap={8}>
+                      {categorySlices.map(([name, value], index) => (
+                        <Group key={name} justify="space-between" gap="sm">
+                          <Group gap="xs">
+                            <span
+                              style={{
+                                width: 10,
+                                height: 10,
+                                borderRadius: "50%",
+                                backgroundColor:
+                                  CATEGORY_COLORS[index % CATEGORY_COLORS.length],
+                                display: "inline-block",
+                              }}
+                            />
+                            <Text size="sm">{name}</Text>
+                          </Group>
+                          <Text size="sm" fw={600}>
+                            {formatAmount(value, primaryCurrency)}
+                          </Text>
+                        </Group>
+                      ))}
+                      </Stack>
+                  </Stack>
+                )}
               </Card>
 
               <Card

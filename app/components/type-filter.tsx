@@ -26,8 +26,6 @@ export default function TypeFilter({ value }: Props) {
         { value: "withdrawal", label: "Withdrawals" },
         { value: "deposit", label: "Deposits" },
         { value: "transfer", label: "Transfers" },
-        { value: "expense", label: "Expenses" },
-        { value: "income", label: "Income" },
       ]}
       onChange={(nextValue) => {
         if (!nextValue) return;

@@ -1,8 +1,22 @@
-import { Badge, Card, Container, Group, Paper, Stack, Text, Title } from "@mantine/core";
+import {
+  Badge,
+  Card,
+  Container,
+  Group,
+  Paper,
+  Stack,
+  Text,
+} from "@mantine/core";
 import DateRangeFilter from "../components/date-range-filter";
+import TransactionsFilters from "../components/transactions-filters";
 import TransactionsTable from "../components/transactions-table";
 import TypeFilter from "../components/type-filter";
-import { fetchExpenses } from "../lib/firefly";
+import {
+  fetchAccounts,
+  fetchCategories,
+  fetchExpenses,
+  fetchTags,
+} from "../lib/firefly";
 
 const DAYS = 30;
 
@@ -32,11 +46,17 @@ export default async function TransactionsPage({
         type?: string;
         preset?: string;
         month?: string;
+    account?: string;
+    categories?: string;
+    labels?: string;
       }
     | Promise<{
         type?: string;
         preset?: string;
         month?: string;
+      account?: string;
+      categories?: string;
+      labels?: string;
       }>;
 }) {
   const endDate = new Date();
@@ -51,6 +71,9 @@ export default async function TransactionsPage({
   let startDate: Date;
   let rangeEndDate: Date;
   let presetMonth = resolvedSearchParams?.month ?? "";
+  const accountFilter = resolvedSearchParams?.account ?? "";
+  const categoryFilter = resolvedSearchParams?.categories ?? "";
+  const labelFilter = resolvedSearchParams?.labels ?? "";
 
   if (preset === "last-30-days") {
     startDate = new Date();
@@ -65,17 +88,29 @@ export default async function TransactionsPage({
 
   let entries = [];
   let pagination;
+  let accounts = [];
+  let categories = [];
+  let labels = [];
   let errorMessage: string | null = null;
 
   try {
-    const response = await fetchExpenses({
-      start: formatDateOnly(startDate),
-      end: formatDateOnly(rangeEndDate),
-      limit: 200,
-      type: requestedType,
-    });
-    entries = response.entries;
-    pagination = response.pagination;
+    const [transactionsResponse, accountsResponse, categoriesResponse, tagsResponse] =
+      await Promise.all([
+        fetchExpenses({
+          start: formatDateOnly(startDate),
+          end: formatDateOnly(rangeEndDate),
+          limit: 200,
+          type: requestedType,
+        }),
+        fetchAccounts(),
+        fetchCategories(),
+        fetchTags(),
+      ]);
+    entries = transactionsResponse.entries;
+    pagination = transactionsResponse.pagination;
+    accounts = accountsResponse;
+    categories = categoriesResponse;
+    labels = tagsResponse;
   } catch (error) {
     errorMessage =
       error instanceof Error ? error.message : "Unable to load transactions.";
@@ -89,31 +124,69 @@ export default async function TransactionsPage({
     };
   });
 
-  const recentEntries = [...normalizedEntries].sort(
+  const categorySelections = categoryFilter
+    ? categoryFilter.split(",").filter(Boolean)
+    : [];
+  const labelSelections = labelFilter ? labelFilter.split(",").filter(Boolean) : [];
+
+  const filteredEntries = normalizedEntries.filter((entry) => {
+    if (accountFilter) {
+      const matchesAccount =
+        entry.sourceId === accountFilter || entry.destinationId === accountFilter;
+      if (!matchesAccount) return false;
+    }
+    if (categorySelections.length > 0) {
+      if (!entry.categoryId || !categorySelections.includes(entry.categoryId)) {
+        return false;
+      }
+    }
+    if (labelSelections.length > 0) {
+      if (!entry.tags || !labelSelections.some((label) => entry.tags?.includes(label))) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const recentEntries = [...filteredEntries].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 
   return (
     <Container size="xl" py="xl">
       <Stack gap="xl">
-        <Group justify="space-between" align="center" wrap="wrap">
-          <div>
-            <Title order={1}>Warmfly III</Title>
-            <Text c="dimmed" mt={4}>
-              Full ledger view with server-side filters.
-            </Text>
-          </div>
-          <Group gap="md" align="center" wrap="wrap">
-            <TypeFilter value={requestedType ?? "all"} />
-            <DateRangeFilter
-              value={
-                preset === "last-30-days"
-                  ? "last-30-days"
-                  : `month:${presetMonth}`
-              }
-              basePath="/transactions"
-            />
-          </Group>
+        <Group gap="md" align="center" wrap="wrap">
+          <TypeFilter value={requestedType ?? "all"} />
+          <DateRangeFilter
+            value={
+              preset === "last-30-days"
+                ? "last-30-days"
+                : `month:${presetMonth}`
+            }
+            basePath="/transactions"
+          />
+          <TransactionsFilters
+            accountOptions={accounts
+              .filter((account) => {
+                const type = (account.type ?? "").toLowerCase();
+                return type !== "initial-balance" && type !== "initial balance account";
+              })
+              .map((account) => ({
+                value: account.id,
+                label: account.name,
+              }))}
+            categoryOptions={categories.map((category) => ({
+              value: category.id,
+              label: category.name,
+            }))}
+            labelOptions={labels.map((tag) => ({
+              value: tag.name,
+              label: tag.name,
+            }))}
+            accountValue={accountFilter || null}
+            categoryValues={categorySelections}
+            labelValues={labelSelections}
+          />
         </Group>
 
         {errorMessage ? (

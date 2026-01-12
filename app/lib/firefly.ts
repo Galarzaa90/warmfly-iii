@@ -6,8 +6,11 @@ type FireflySplit = {
   currency_code?: string | null;
   currency_symbol?: string | null;
   source_name?: string | null;
+  source_id?: string | null;
   destination_name?: string | null;
+  destination_id?: string | null;
   category_name?: string | null;
+  category_id?: string | null;
   budget_name?: string | null;
   tags?: string[] | null;
 };
@@ -73,6 +76,40 @@ type FireflyBudgetLimitResponse = {
   data: FireflyBudgetLimit[];
 };
 
+type FireflyAccount = {
+  id: string;
+  attributes: {
+    name: string;
+    type?: string | null;
+  };
+};
+
+type FireflyAccountResponse = {
+  data: FireflyAccount[];
+};
+
+type FireflyCategory = {
+  id: string;
+  attributes: {
+    name: string;
+  };
+};
+
+type FireflyCategoryResponse = {
+  data: FireflyCategory[];
+};
+
+type FireflyTag = {
+  id: string;
+  attributes: {
+    tag: string;
+  };
+};
+
+type FireflyTagResponse = {
+  data: FireflyTag[];
+};
+
 export type ExpenseEntry = {
   id: string;
   title: string;
@@ -82,8 +119,11 @@ export type ExpenseEntry = {
   currencyCode?: string | null;
   currencySymbol?: string | null;
   source?: string | null;
+  sourceId?: string | null;
   destination?: string | null;
+  destinationId?: string | null;
   category?: string | null;
+  categoryId?: string | null;
   budget?: string | null;
   tags?: string[] | null;
 };
@@ -104,6 +144,22 @@ export type BudgetEntry = {
   currencyCode?: string | null;
   currencySymbol?: string | null;
   autoLimit: number;
+};
+
+export type AccountEntry = {
+  id: string;
+  name: string;
+  type?: string | null;
+};
+
+export type CategoryEntry = {
+  id: string;
+  name: string;
+};
+
+export type TagEntry = {
+  id: string;
+  name: string;
 };
 
 function requireEnv(value: string | undefined, key: string) {
@@ -179,8 +235,11 @@ export async function fetchExpenses({
         currencyCode: split.currency_code,
         currencySymbol: split.currency_symbol,
         source: split.source_name,
+        sourceId: split.source_id,
         destination: split.destination_name,
+        destinationId: split.destination_id,
         category: split.category_name,
+        categoryId: split.category_id,
         budget: split.budget_name,
         tags: split.tags,
       }));
@@ -260,5 +319,45 @@ export async function fetchBudgetLimits({
           spentEntry?.currency_symbol ?? limit.attributes.currency_symbol,
       } satisfies BudgetLimitEntry;
     }) ?? []
+  );
+}
+
+export async function fetchAccounts() {
+  const payload = (await fireflyFetch("/v1/accounts", {
+    limit: "200",
+  })) as FireflyAccountResponse;
+
+  return (
+    payload.data?.map((account) => ({
+      id: account.id,
+      name: account.attributes.name,
+      type: account.attributes.type ?? null,
+    })) ?? []
+  );
+}
+
+export async function fetchCategories() {
+  const payload = (await fireflyFetch("/v1/categories", {
+    limit: "200",
+  })) as FireflyCategoryResponse;
+
+  return (
+    payload.data?.map((category) => ({
+      id: category.id,
+      name: category.attributes.name,
+    })) ?? []
+  );
+}
+
+export async function fetchTags() {
+  const payload = (await fireflyFetch("/v1/tags", {
+    limit: "200",
+  })) as FireflyTagResponse;
+
+  return (
+    payload.data?.map((tag) => ({
+      id: tag.id,
+      name: tag.attributes.tag,
+    })) ?? []
   );
 }
