@@ -2,9 +2,9 @@ import "@mantine/core/styles.css";
 import type { Metadata } from "next";
 import { ColorSchemeScript, MantineProvider, createTheme } from "@mantine/core";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
-import Link from "next/link";
 import "./globals.css";
 import ServiceWorker from "./components/service-worker";
+import NavLinks from "./components/nav-links";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -72,17 +72,7 @@ export default function RootLayout({
               >
                 Warmfly III
               </div>
-              <div style={{ display: "flex", gap: 16 }}>
-                <Link href="/" style={{ color: "inherit", textDecoration: "none" }}>
-                  Overview
-                </Link>
-                <Link
-                  href="/transactions"
-                  style={{ color: "inherit", textDecoration: "none" }}
-                >
-                  Transactions
-                </Link>
-              </div>
+              <NavLinks />
             </nav>
           </header>
           {children}

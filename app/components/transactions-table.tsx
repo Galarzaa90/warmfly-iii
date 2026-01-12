@@ -1,4 +1,18 @@
-import { Badge, Group, Table, TableTbody, TableTd, TableTh, TableThead, TableTr, Text } from "@mantine/core";
+"use client";
+
+import {
+  Badge,
+  Group,
+  Stack,
+  Table,
+  TableTbody,
+  TableTd,
+  TableTh,
+  TableThead,
+  TableTr,
+  Text,
+  Tooltip,
+} from "@mantine/core";
 import { TransferArrowIcon } from "./icons";
 
 export type TransactionRow = {
@@ -19,6 +33,7 @@ export type TransactionRow = {
 type Props = {
   entries: TransactionRow[];
   maxRows?: number;
+  pagination?: React.ReactNode;
 };
 
 const ACCOUNT_COLORS = [
@@ -58,6 +73,20 @@ function formatDate(value: string) {
     month: "short",
     day: "2-digit",
   }).format(date);
+}
+
+function formatFullDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "full",
+    timeStyle: "medium",
+  }).format(date);
+}
+
+function formatTransactionType(type?: string) {
+  if (!type) return "Transaction";
+  return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
 function formatAmount(
@@ -182,132 +211,184 @@ function BudgetIcon() {
   );
 }
 
-export default function TransactionsTable({ entries, maxRows }: Props) {
+export default function TransactionsTable({
+  entries,
+  maxRows,
+  pagination,
+}: Props) {
   const rows = maxRows ? entries.slice(0, maxRows) : entries;
 
   return (
-    <Table highlightOnHover horizontalSpacing="md" verticalSpacing="sm">
-      <TableThead>
-        <TableTr>
-          <TableTh>Transaction</TableTh>
-          <TableTh>Account</TableTh>
-          <TableTh>Date</TableTh>
-          <TableTh style={{ textAlign: "right" }}>Amount</TableTh>
-        </TableTr>
-      </TableThead>
-      <TableTbody>
-        {rows.map((entry) => (
-          <TableTr key={entry.id}>
-            <TableTd>
-              <Group gap="xs" align="center">
-                <TransactionTypeIcon type={entry.type} />
-                <Text fw={600} size="sm">
-                  {entry.title}
-                </Text>
-              </Group>
-              <Group gap="xs" mt={6} wrap="wrap">
-                {entry.category ? (
-                  <Badge
-                    size="xs"
-                    variant="light"
-                    color="teal"
-                    style={{ textTransform: "none" }}
-                    leftSection={<CategoryIcon />}
-                    title={`Category: ${entry.category}`}
-                  >
-                    {entry.category}
-                  </Badge>
-                ) : null}
-                {entry.budget ? (
-                  <Badge
-                    size="xs"
-                    variant="light"
-                    color="cyan"
-                    style={{ textTransform: "none" }}
-                    leftSection={<BudgetIcon />}
-                    title={`Budget: ${entry.budget}`}
-                  >
-                    {entry.budget}
-                  </Badge>
-                ) : null}
-                {entry.tags?.map((tag) => (
-                  <Badge
-                    key={tag}
-                    size="xs"
-                    variant="light"
-                    color="gray"
-                    style={{ textTransform: "none" }}
-                    leftSection={<LabelIcon />}
-                    title={`Label: ${tag}`}
-                  >
-                    {tag}
-                  </Badge>
-                ))}
-              </Group>
-            </TableTd>
-            <TableTd>
-              {entry.type === "transfer" ? (
-                <Group gap="xs" align="center" wrap="wrap">
-                  <Badge
-                    size="md"
-                    variant="light"
-                    color={accountColor(
-                      normalizeAccountName(entry.source),
-                    )}
-                    style={{ textTransform: "none" }}
-                  >
-                    {normalizeAccountName(entry.source)}
-                  </Badge>
-                  <Text size="xs" c="dimmed">
-                    <TransferArrowIcon size={14} />
+    <Stack gap="md">
+      <Table highlightOnHover horizontalSpacing="md" verticalSpacing="sm">
+        <TableThead>
+          <TableTr>
+            <TableTh>Transaction</TableTh>
+            <TableTh>Account</TableTh>
+            <TableTh>Date</TableTh>
+            <TableTh style={{ textAlign: "right" }}>Amount</TableTh>
+          </TableTr>
+        </TableThead>
+        <TableTbody>
+          {rows.map((entry) => (
+            <TableTr key={entry.id}>
+              <TableTd>
+                <Group gap="xs" align="center">
+                  <Tooltip label={formatTransactionType(entry.type)} withArrow>
+                    <span style={{ display: "inline-flex" }}>
+                      <TransactionTypeIcon type={entry.type} />
+                    </span>
+                  </Tooltip>
+                  <Text fw={600} size="sm">
+                    {entry.title}
                   </Text>
-                  <Badge
-                    size="md"
-                    variant="light"
-                    color={accountColor(
-                      normalizeAccountName(entry.destination),
-                    )}
-                    style={{ textTransform: "none" }}
-                  >
-                    {normalizeAccountName(entry.destination)}
-                  </Badge>
                 </Group>
-              ) : (
-                <Badge
-                  size="md"
-                  variant="light"
-                  color={accountColor(
-                    normalizeAccountName(
+                <Group gap="xs" mt={6} wrap="wrap">
+                  {entry.category ? (
+                    <Tooltip label={`Category: ${entry.category}`} withArrow>
+                      <span style={{ display: "inline-flex" }}>
+                        <Badge
+                          size="md"
+                          variant="light"
+                          color="teal"
+                          style={{ textTransform: "none" }}
+                          leftSection={<CategoryIcon />}
+                        >
+                          {entry.category}
+                        </Badge>
+                      </span>
+                    </Tooltip>
+                  ) : null}
+                  {entry.budget ? (
+                    <Tooltip label={`Budget: ${entry.budget}`} withArrow>
+                      <span style={{ display: "inline-flex" }}>
+                        <Badge
+                          size="md"
+                          variant="light"
+                          color="cyan"
+                          style={{ textTransform: "none" }}
+                          leftSection={<BudgetIcon />}
+                        >
+                          {entry.budget}
+                        </Badge>
+                      </span>
+                    </Tooltip>
+                  ) : null}
+                  {entry.tags?.map((tag) => (
+                    <Tooltip key={tag} label={`Label: ${tag}`} withArrow>
+                      <span style={{ display: "inline-flex" }}>
+                        <Badge
+                          size="md"
+                          variant="light"
+                          color="gray"
+                          style={{ textTransform: "none" }}
+                          leftSection={<LabelIcon />}
+                        >
+                          {tag}
+                        </Badge>
+                      </span>
+                    </Tooltip>
+                  ))}
+                </Group>
+              </TableTd>
+              <TableTd>
+                {entry.type === "transfer" ? (
+                  <Group gap="xs" align="center" wrap="wrap">
+                    <Tooltip
+                      label={`Account: ${normalizeAccountName(entry.source)}`}
+                      withArrow
+                    >
+                      <span style={{ display: "inline-flex" }}>
+                        <Badge
+                          size="lg"
+                          variant="light"
+                          color={accountColor(
+                            normalizeAccountName(entry.source),
+                          )}
+                          style={{ textTransform: "none" }}
+                        >
+                          {normalizeAccountName(entry.source)}
+                        </Badge>
+                      </span>
+                    </Tooltip>
+                    <Text size="xs" c="dimmed">
+                      <TransferArrowIcon size={14} />
+                    </Text>
+                    <Tooltip
+                      label={`Account: ${normalizeAccountName(
+                        entry.destination,
+                      )}`}
+                      withArrow
+                    >
+                      <span style={{ display: "inline-flex" }}>
+                        <Badge
+                          size="lg"
+                          variant="light"
+                          color={accountColor(
+                            normalizeAccountName(entry.destination),
+                          )}
+                          style={{ textTransform: "none" }}
+                        >
+                          {normalizeAccountName(entry.destination)}
+                        </Badge>
+                      </span>
+                    </Tooltip>
+                  </Group>
+                ) : (
+                  <Tooltip
+                    label={`Account: ${normalizeAccountName(
                       entry.type === "deposit" || entry.type === "income"
                         ? entry.destination
                         : entry.source,
-                    ),
-                  )}
-                  style={{ textTransform: "none" }}
-                >
-                  {normalizeAccountName(
-                    entry.type === "deposit" || entry.type === "income"
-                      ? entry.destination
-                      : entry.source,
-                  )}
-                </Badge>
-              )}
-            </TableTd>
-            <TableTd>
-              <Text size="sm">{formatDate(entry.date)}</Text>
-            </TableTd>
-            <TableTd style={{ textAlign: "right" }}>
-              <Text fw={600} size="sm">
-                {formatAmount(
-                  entry.amountValue,
-                  entry.currencyCode,
-                  entry.currencySymbol,
+                    )}`}
+                    withArrow
+                  >
+                    <span style={{ display: "inline-flex" }}>
+                      <Badge
+                        size="lg"
+                        variant="light"
+                        color={accountColor(
+                          normalizeAccountName(
+                            entry.type === "deposit" || entry.type === "income"
+                              ? entry.destination
+                              : entry.source,
+                          ),
+                        )}
+                        style={{ textTransform: "none" }}
+                      >
+                        {normalizeAccountName(
+                          entry.type === "deposit" || entry.type === "income"
+                            ? entry.destination
+                            : entry.source,
+                        )}
+                      </Badge>
+                    </span>
+                  </Tooltip>
                 )}
-              </Text>
-            </TableTd>
-          </TableTr>
-        ))}
-      </TableTbody>
-    </Table>
+              </TableTd>
+              <TableTd>
+                <Tooltip label={formatFullDate(entry.date)} withArrow>
+                  <span style={{ display: "inline-flex" }}>
+                    <Text size="sm" component="span">
+                      {formatDate(entry.date)}
+                    </Text>
+                  </span>
+                </Tooltip>
+              </TableTd>
+              <TableTd style={{ textAlign: "right" }}>
+                <Text fw={600} size="sm">
+                  {formatAmount(
+                    entry.amountValue,
+                    entry.currencyCode,
+                    entry.currencySymbol,
+                  )}
+                </Text>
+              </TableTd>
+            </TableTr>
+          ))}
+        </TableTbody>
+      </Table>
+      {pagination ?? null}
+    </Stack>
   );
 }

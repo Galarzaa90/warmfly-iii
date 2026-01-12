@@ -188,6 +188,8 @@ async function fireflyFetch(path: string, params?: Record<string, string>) {
     });
   }
 
+  console.log(`[firefly] GET ${url.pathname}${url.search}`);
+
   const response = await fetch(url.toString(), {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -223,6 +225,49 @@ export async function fetchExpenses({
     start: start ?? "",
     end: end ?? "",
   })) as FireflyResponse;
+  const entries: ExpenseEntry[] =
+    payload.data?.flatMap((item) => {
+      const groupTitle = item.attributes.group_title;
+      return item.attributes.transactions.map((split, index) => ({
+        id: `${item.id}-${index}`,
+        title: groupTitle || split.description || "Untitled expense",
+        date: split.date,
+        amount: split.amount,
+        type: split.type,
+        currencyCode: split.currency_code,
+        currencySymbol: split.currency_symbol,
+        source: split.source_name,
+        sourceId: split.source_id,
+        destination: split.destination_name,
+        destinationId: split.destination_id,
+        category: split.category_name,
+        categoryId: split.category_id,
+        budget: split.budget_name,
+        tags: split.tags,
+      }));
+    }) ?? [];
+
+  return {
+    entries,
+    pagination: payload.meta?.pagination,
+  };
+}
+
+export async function searchTransactions({
+  query,
+  limit = 50,
+  page = 1,
+}: {
+  query: string;
+  limit?: number;
+  page?: number;
+}) {
+  const payload = (await fireflyFetch("/v1/search/transactions", {
+    query,
+    limit: String(limit),
+    page: String(page),
+  })) as FireflyResponse;
+
   const entries: ExpenseEntry[] =
     payload.data?.flatMap((item) => {
       const groupTitle = item.attributes.group_title;

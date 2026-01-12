@@ -11,10 +11,11 @@ import DateRangeFilter from "../components/date-range-filter";
 import TransactionsFilters from "../components/transactions-filters";
 import TransactionsTable from "../components/transactions-table";
 import TypeFilter from "../components/type-filter";
+import TransactionsPagination from "../components/transactions-pagination";
 import {
   fetchAccounts,
   fetchCategories,
-  fetchExpenses,
+  searchTransactions,
   fetchTags,
   type AccountEntry,
   type CategoryEntry,
@@ -22,7 +23,10 @@ import {
   type TagEntry,
 } from "../lib/firefly";
 
-const DAYS = 30;
+const DAYS_30 = 30;
+const DAYS_90 = 90;
+const ALL_DATA_START = new Date(1970, 0, 1);
+const PAGE_SIZE_OPTIONS = new Set([25, 50, 100]);
 
 function formatDateOnly(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -42,6 +46,16 @@ function endOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
+function formatSearchValue(value: string) {
+  const trimmed = value.trim();
+  const escaped = trimmed.replace(/"/g, '\\"');
+  return /\s/.test(escaped) ? `"${escaped}"` : escaped;
+}
+
+function buildToken(key: string, value: string) {
+  return `${key}:${formatSearchValue(value)}`;
+}
+
 export default async function TransactionsPage({
   searchParams,
 }: {
@@ -50,17 +64,21 @@ export default async function TransactionsPage({
         type?: string;
         preset?: string;
         month?: string;
-    account?: string;
-    categories?: string;
-    labels?: string;
+        account?: string;
+        categories?: string;
+        labels?: string;
+        page?: string;
+        limit?: string;
       }
     | Promise<{
         type?: string;
         preset?: string;
         month?: string;
-      account?: string;
-      categories?: string;
-      labels?: string;
+        account?: string;
+        categories?: string;
+        labels?: string;
+        page?: string;
+        limit?: string;
       }>;
 }) {
   const endDate = new Date();
@@ -68,6 +86,8 @@ export default async function TransactionsPage({
   const requestedType = resolvedSearchParams?.type;
   const preset =
     resolvedSearchParams?.preset === "last-30-days" ||
+    resolvedSearchParams?.preset === "last-90-days" ||
+    resolvedSearchParams?.preset === "all-data" ||
     resolvedSearchParams?.preset === "month"
       ? resolvedSearchParams.preset
       : "month";
@@ -78,10 +98,28 @@ export default async function TransactionsPage({
   const accountFilter = resolvedSearchParams?.account ?? "";
   const categoryFilter = resolvedSearchParams?.categories ?? "";
   const labelFilter = resolvedSearchParams?.labels ?? "";
+  const pageParam = Number.parseInt(resolvedSearchParams?.page ?? "", 10);
+  const limitParam = Number.parseInt(resolvedSearchParams?.limit ?? "", 10);
+  const page = Number.isNaN(pageParam) || pageParam < 1 ? 1 : pageParam;
+  const limit =
+    Number.isNaN(limitParam) || !PAGE_SIZE_OPTIONS.has(limitParam)
+      ? 50
+      : limitParam;
+  const categorySelections = categoryFilter
+    ? categoryFilter.split(",").filter(Boolean)
+    : [];
+  const labelSelections = labelFilter ? labelFilter.split(",").filter(Boolean) : [];
 
   if (preset === "last-30-days") {
     startDate = new Date();
-    startDate.setDate(endDate.getDate() - DAYS);
+    startDate.setDate(endDate.getDate() - DAYS_30);
+    rangeEndDate = endDate;
+  } else if (preset === "last-90-days") {
+    startDate = new Date();
+    startDate.setDate(endDate.getDate() - DAYS_90);
+    rangeEndDate = endDate;
+  } else if (preset === "all-data") {
+    startDate = new Date(ALL_DATA_START);
     rangeEndDate = endDate;
   } else {
     const selectedMonth = parseMonth(presetMonth) ?? startOfMonth(endDate);
@@ -90,33 +128,85 @@ export default async function TransactionsPage({
     presetMonth = formatDateOnly(startDate).slice(0, 7);
   }
 
-  type ExpensesResponse = Awaited<ReturnType<typeof fetchExpenses>>;
-
   let entries: ExpenseEntry[] = [];
-  let pagination: ExpensesResponse["pagination"];
+  let totalPages = 1;
+  let totalMatches: number | null = null;
   let accounts: AccountEntry[] = [];
   let categories: CategoryEntry[] = [];
   let labels: TagEntry[] = [];
   let errorMessage: string | null = null;
 
   try {
-    const [transactionsResponse, accountsResponse, categoriesResponse, tagsResponse] =
-      await Promise.all([
-        fetchExpenses({
-          start: formatDateOnly(startDate),
-          end: formatDateOnly(rangeEndDate),
-          limit: 200,
-          type: requestedType,
-        }),
-        fetchAccounts(),
-        fetchCategories(),
-        fetchTags(),
-      ]);
-    entries = transactionsResponse.entries;
-    pagination = transactionsResponse.pagination;
+    const [accountsResponse, categoriesResponse, tagsResponse] = await Promise.all([
+      fetchAccounts(),
+      fetchCategories(),
+      fetchTags(),
+    ]);
     accounts = accountsResponse;
     categories = categoriesResponse;
     labels = tagsResponse;
+
+    const categoryNameById = new Map(
+      categoriesResponse.map((category) => [category.id, category.name]),
+    );
+    const selectedCategoryNames = categorySelections
+      .map((id) => categoryNameById.get(id))
+      .filter((name): name is string => Boolean(name));
+
+    const baseTokens = [
+      `date_after:${formatDateOnly(startDate)}`,
+      `date_before:${formatDateOnly(rangeEndDate)}`,
+    ];
+
+    if (requestedType && requestedType !== "all") {
+      baseTokens.push(`type:${requestedType}`);
+    }
+
+    if (accountFilter) {
+      baseTokens.push(`account_id:${accountFilter}`);
+    }
+
+    const categoryValues = selectedCategoryNames.length
+      ? selectedCategoryNames
+      : [null];
+    const labelValues = labelSelections.length ? labelSelections : [null];
+
+    const queries: string[] = [];
+    categoryValues.forEach((category) => {
+      labelValues.forEach((label) => {
+        const tokens = [...baseTokens];
+        if (category) tokens.push(buildToken("category_is", category));
+        if (label) tokens.push(buildToken("tag_is", label));
+        queries.push(tokens.join(" "));
+      });
+    });
+
+    const searchResponses = await Promise.all(
+      queries.map((query) =>
+        searchTransactions({
+          query,
+          limit,
+          page,
+        }),
+      ),
+    );
+
+    const entryMap = new Map<string, ExpenseEntry>();
+    searchResponses.forEach((response) => {
+      response.entries.forEach((entry) => {
+        entryMap.set(entry.id, entry);
+      });
+    });
+
+    entries = Array.from(entryMap.values());
+    totalPages = searchResponses.reduce((max, response) => {
+      const candidate = response.pagination?.total_pages ?? 1;
+      return candidate > max ? candidate : max;
+    }, 1);
+    totalMatches = searchResponses.reduce((max, response) => {
+      const candidate = response.pagination?.total ?? 0;
+      return candidate > max ? candidate : max;
+    }, 0);
   } catch (error) {
     errorMessage =
       error instanceof Error ? error.message : "Unable to load transactions.";
@@ -130,31 +220,7 @@ export default async function TransactionsPage({
     };
   });
 
-  const categorySelections = categoryFilter
-    ? categoryFilter.split(",").filter(Boolean)
-    : [];
-  const labelSelections = labelFilter ? labelFilter.split(",").filter(Boolean) : [];
-
-  const filteredEntries = normalizedEntries.filter((entry) => {
-    if (accountFilter) {
-      const matchesAccount =
-        entry.sourceId === accountFilter || entry.destinationId === accountFilter;
-      if (!matchesAccount) return false;
-    }
-    if (categorySelections.length > 0) {
-      if (!entry.categoryId || !categorySelections.includes(entry.categoryId)) {
-        return false;
-      }
-    }
-    if (labelSelections.length > 0) {
-      if (!entry.tags || !labelSelections.some((label) => entry.tags?.includes(label))) {
-        return false;
-      }
-    }
-    return true;
-  });
-
-  const recentEntries = [...filteredEntries].sort(
+  const recentEntries = [...normalizedEntries].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 
@@ -167,7 +233,11 @@ export default async function TransactionsPage({
             value={
               preset === "last-30-days"
                 ? "last-30-days"
-                : `month:${presetMonth}`
+                : preset === "last-90-days"
+                  ? "last-90-days"
+                  : preset === "all-data"
+                    ? "all-data"
+                    : `month:${presetMonth}`
             }
             basePath="/transactions"
           />
@@ -175,7 +245,7 @@ export default async function TransactionsPage({
             accountOptions={accounts
               .filter((account) => {
                 const type = (account.type ?? "").toLowerCase();
-                return type !== "initial-balance" && type !== "initial balance account";
+                return type !== "initial-balance" && type !== "reconciliation";
               })
               .map((account) => ({
                 value: account.id,
@@ -194,7 +264,6 @@ export default async function TransactionsPage({
             labelValues={labelSelections}
           />
         </Group>
-
         {errorMessage ? (
           <Paper
             radius="md"
@@ -223,11 +292,32 @@ export default async function TransactionsPage({
         >
           <Group justify="space-between" mb="md">
             <Text fw={600}>Transactions</Text>
-            <Badge variant="light" color="gray">
-              {pagination?.total ?? recentEntries.length} entries
-            </Badge>
+            <Group gap="md" align="center">
+              <Badge variant="light" color="gray">
+                {(totalMatches ?? recentEntries.length)} entries
+              </Badge>
+              <TransactionsPagination
+                page={page}
+                totalPages={totalPages}
+                limit={limit}
+                basePath="/transactions"
+                showPagination={false}
+                variant="compact"
+              />
+            </Group>
           </Group>
-          <TransactionsTable entries={recentEntries} />
+          <TransactionsTable
+            entries={recentEntries}
+            pagination={
+              <TransactionsPagination
+                page={page}
+                totalPages={totalPages}
+                limit={limit}
+                basePath="/transactions"
+                showSelect={false}
+              />
+            }
+          />
         </Card>
       </Stack>
     </Container>

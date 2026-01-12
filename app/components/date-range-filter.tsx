@@ -12,7 +12,7 @@ type Props = {
 function updateParams(
   params: URLSearchParams,
   next: Partial<{
-    preset: "last-30-days" | "month";
+    preset: "last-30-days" | "last-90-days" | "all-data" | "month";
     month: string;
   }>,
 ) {
@@ -36,21 +36,32 @@ export default function DateRangeFilter({ value, basePath = "/" }: Props) {
 
   const options = useMemo(() => {
     const now = new Date();
-    const items = [
-      { value: "last-30-days", label: "Last 30 days" },
-    ] as { value: string; label: string }[];
+    const monthItems: { value: string; label: string }[] = [];
 
-    for (let i = 0; i < 6; i += 1) {
+    for (let i = 0; i < 12; i += 1) {
       const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
       const month = date.toISOString().slice(0, 7);
       const label = new Intl.DateTimeFormat("en-US", {
         month: "long",
         year: "numeric",
       }).format(date);
-      items.push({ value: `month:${month}`, label });
+      monthItems.push({ value: `month:${month}`, label });
     }
 
-    return items;
+    return [
+      {
+        group: "Presets",
+        items: [
+          { value: "last-30-days", label: "Last 30 days" },
+          { value: "last-90-days", label: "Last 90 days" },
+          { value: "all-data", label: "All data" },
+        ],
+      },
+      {
+        group: "Months",
+        items: monthItems,
+      },
+    ];
   }, []);
 
   return (
@@ -66,16 +77,32 @@ export default function DateRangeFilter({ value, basePath = "/" }: Props) {
               preset: "last-30-days",
               month: "",
             });
-          router.push(`${basePath}?${next.toString()}`);
-          return;
-        }
-        if (nextValue.startsWith("month:")) {
-          const month = nextValue.replace("month:", "");
-          const next = updateParams(params, { preset: "month", month });
-          router.push(`${basePath}?${next.toString()}`);
-        }
-      }}
-        maxDropdownHeight={260}
+            router.push(`${basePath}?${next.toString()}`);
+            return;
+          }
+          if (nextValue === "last-90-days") {
+            const next = updateParams(params, {
+              preset: "last-90-days",
+              month: "",
+            });
+            router.push(`${basePath}?${next.toString()}`);
+            return;
+          }
+          if (nextValue === "all-data") {
+            const next = updateParams(params, {
+              preset: "all-data",
+              month: "",
+            });
+            router.push(`${basePath}?${next.toString()}`);
+            return;
+          }
+          if (nextValue.startsWith("month:")) {
+            const month = nextValue.replace("month:", "");
+            const next = updateParams(params, { preset: "month", month });
+            router.push(`${basePath}?${next.toString()}`);
+          }
+        }}
+        maxDropdownHeight={320}
         w={260}
       />
     </Group>

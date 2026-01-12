@@ -23,7 +23,9 @@ import {
   type ExpenseEntry,
 } from "./lib/firefly";
 
-const DAYS = 30;
+const DAYS_30 = 30;
+const DAYS_90 = 90;
+const ALL_DATA_START = new Date(1970, 0, 1);
 const CATEGORY_COLORS = [
   "#22c55e",
   "#38bdf8",
@@ -105,6 +107,8 @@ export default async function Home({
   const requestedType = resolvedSearchParams?.type;
   const preset =
     resolvedSearchParams?.preset === "last-30-days" ||
+    resolvedSearchParams?.preset === "last-90-days" ||
+    resolvedSearchParams?.preset === "all-data" ||
     resolvedSearchParams?.preset === "month"
       ? resolvedSearchParams.preset
       : "month";
@@ -116,9 +120,18 @@ export default async function Home({
 
   if (preset === "last-30-days") {
     startDate = new Date();
-    startDate.setDate(endDate.getDate() - DAYS);
+    startDate.setDate(endDate.getDate() - DAYS_30);
     rangeEndDate = endDate;
     rangeLabel = "Last 30 days";
+  } else if (preset === "last-90-days") {
+    startDate = new Date();
+    startDate.setDate(endDate.getDate() - DAYS_90);
+    rangeEndDate = endDate;
+    rangeLabel = "Last 90 days";
+  } else if (preset === "all-data") {
+    startDate = new Date(ALL_DATA_START);
+    rangeEndDate = endDate;
+    rangeLabel = "All data";
   } else if (preset === "month") {
     const selectedMonth = parseMonth(presetMonth) ?? startOfMonth(endDate);
     startDate = startOfMonth(selectedMonth);
@@ -282,7 +295,11 @@ export default async function Home({
             value={
               preset === "last-30-days"
                 ? "last-30-days"
-                : `month:${presetMonth}`
+                : preset === "last-90-days"
+                  ? "last-90-days"
+                  : preset === "all-data"
+                    ? "all-data"
+                    : `month:${presetMonth}`
             }
           />
         </Group>
