@@ -1,65 +1,484 @@
-import Image from "next/image";
+import {
+  Badge,
+  Card,
+  Container,
+  Group,
+  Paper,
+  Progress,
+  SimpleGrid,
+  Stack,
+  Text,
+  Title,
+  Grid,
+  GridCol,
+} from "@mantine/core";
+import DateRangeFilter from "./components/date-range-filter";
+import TransactionsTable from "./components/transactions-table";
+import { fetchBudgetLimits, fetchBudgets, fetchExpenses } from "./lib/firefly";
 
-export default function Home() {
+const DAYS = 30;
+
+function formatDate(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "2-digit",
+  }).format(date);
+}
+
+function formatAmount(
+  amount: number,
+  currencyCode?: string | null,
+  currencySymbol?: string | null,
+) {
+  if (currencyCode) {
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: currencyCode,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  }
+  if (currencySymbol) {
+    return `${currencySymbol}${amount.toFixed(2)}`;
+  }
+  return amount.toFixed(2);
+}
+
+function formatDateOnly(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function parseMonth(value: string) {
+  if (!/^\d{4}-\d{2}$/.test(value)) return null;
+  const [year, month] = value.split("-").map(Number);
+  return new Date(year, month - 1, 1);
+}
+
+function startOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function endOfMonth(date: Date) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function formatMonthYear(date: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+export default async function Home({
+  searchParams,
+}: {
+  searchParams?:
+    | {
+        type?: string;
+        preset?: string;
+        month?: string;
+      }
+    | Promise<{
+        type?: string;
+        preset?: string;
+        month?: string;
+      }>;
+}) {
+  const endDate = new Date();
+  const resolvedSearchParams = await Promise.resolve(searchParams);
+  const requestedType = resolvedSearchParams?.type;
+  const preset =
+    resolvedSearchParams?.preset === "last-30-days" ||
+    resolvedSearchParams?.preset === "month"
+      ? resolvedSearchParams.preset
+      : "month";
+
+  let startDate: Date;
+  let rangeEndDate: Date;
+  let presetMonth = resolvedSearchParams?.month ?? "";
+  let rangeLabel = formatMonthYear(startOfMonth(endDate));
+
+  if (preset === "last-30-days") {
+    startDate = new Date();
+    startDate.setDate(endDate.getDate() - DAYS);
+    rangeEndDate = endDate;
+    rangeLabel = "Last 30 days";
+  } else if (preset === "month") {
+    const selectedMonth = parseMonth(presetMonth) ?? startOfMonth(endDate);
+    startDate = startOfMonth(selectedMonth);
+    rangeEndDate = endOfMonth(selectedMonth);
+    presetMonth = formatDateOnly(startDate).slice(0, 7);
+    rangeLabel = formatMonthYear(startDate);
+  } else {
+    startDate = startOfMonth(endDate);
+    rangeEndDate = endOfMonth(endDate);
+    rangeLabel = formatMonthYear(startDate);
+  }
+
+  let entries = [];
+  let pagination;
+  let budgetLimits = [];
+  let budgets = [];
+  let errorMessage: string | null = null;
+
+  try {
+    const [transactionsResponse, budgetsResponse, limitsResponse] =
+      await Promise.all([
+        fetchExpenses({
+          start: formatDateOnly(startDate),
+          end: formatDateOnly(rangeEndDate),
+          limit: 60,
+          type: requestedType,
+        }),
+        fetchBudgets({
+          start: formatDateOnly(startDate),
+          end: formatDateOnly(rangeEndDate),
+        }),
+        fetchBudgetLimits({
+          start: formatDateOnly(startDate),
+          end: formatDateOnly(rangeEndDate),
+        }),
+      ]);
+
+    entries = transactionsResponse.entries;
+    pagination = transactionsResponse.pagination;
+    budgets = budgetsResponse;
+    budgetLimits = limitsResponse;
+  } catch (error) {
+    errorMessage =
+      error instanceof Error ? error.message : "Unable to load expenses.";
+  }
+
+  const totalsByCurrency = new Map<string, number>();
+  const countByCurrency = new Map<string, number>();
+  const normalizedEntries = entries.map((entry) => {
+    const amount = Math.abs(Number.parseFloat(entry.amount || "0"));
+    if (!Number.isNaN(amount) && entry.currencyCode) {
+      totalsByCurrency.set(
+        entry.currencyCode,
+        (totalsByCurrency.get(entry.currencyCode) ?? 0) + amount,
+      );
+      countByCurrency.set(
+        entry.currencyCode,
+        (countByCurrency.get(entry.currencyCode) ?? 0) + 1,
+      );
+    }
+    return {
+      ...entry,
+      amountValue: Number.isNaN(amount) ? 0 : amount,
+    };
+  });
+
+  const currencyTotals = Array.from(totalsByCurrency.entries()).sort(
+    (a, b) => b[1] - a[1],
+  );
+  const primaryCurrency = currencyTotals[0]?.[0] ?? null;
+  const primaryTotal = currencyTotals[0]?.[1] ?? 0;
+  const primaryCount = primaryCurrency
+    ? countByCurrency.get(primaryCurrency) ?? 0
+    : entries.length;
+
+  const focusEntries = primaryCurrency
+    ? normalizedEntries.filter((entry) => entry.currencyCode === primaryCurrency)
+    : normalizedEntries;
+
+  const byCategory = new Map<string, number>();
+
+  focusEntries.forEach((entry) => {
+    const category = entry.category || "Uncategorized";
+    byCategory.set(category, (byCategory.get(category) ?? 0) + entry.amountValue);
+  });
+
+  const topCategories = Array.from(byCategory.entries())
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+  const limitByBudgetId = new Map(
+    budgetLimits.map((limit) => [limit.budgetId, limit]),
+  );
+  const budgetsWithLimits = budgets
+    .map((budget) => {
+      const limit = limitByBudgetId.get(budget.id);
+      const resolvedLimit = limit?.limit ?? budget.autoLimit ?? 0;
+      return {
+        ...budget,
+        limit: resolvedLimit,
+        limitCurrencyCode: limit?.currencyCode ?? budget.currencyCode,
+        limitCurrencySymbol: limit?.currencySymbol ?? budget.currencySymbol,
+        usage: resolvedLimit ? budget.spent / resolvedLimit : 0,
+      };
+    })
+    .sort((a, b) => b.spent - a.spent);
+
+  const recentExpenses = [...normalizedEntries].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  );
+
+  const daySpan =
+    Math.max(
+      1,
+      Math.round(
+        (rangeEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
+      ) + 1,
+    );
+  const averagePerDay = primaryTotal / daySpan;
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <Container size="xl" py="xl">
+      <Stack gap="xl">
+        <Group justify="space-between" align="center" wrap="wrap">
+          <Text c="dimmed">
+            A clean, server-rendered snapshot of your Firefly III spending.
+          </Text>
+          <DateRangeFilter
+            value={
+              preset === "last-30-days"
+                ? "last-30-days"
+                : `month:${presetMonth}`
+            }
+          />
+        </Group>
+
+        {errorMessage ? (
+          <Paper
+            radius="md"
+            p="lg"
+            style={{
+              backgroundColor: "var(--app-panel-strong)",
+              border: "1px solid #3a1b1b",
+            }}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            <Text fw={600} mb={4}>
+              Unable to load expenses
+            </Text>
+            <Text size="sm" c="dimmed">
+              {errorMessage}
+            </Text>
+          </Paper>
+        ) : null}
+
+        <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
+          <Card
+            padding="lg"
+            radius="md"
+            style={{
+              backgroundColor: "var(--app-panel)",
+              border: "1px solid var(--app-border)",
+            }}
           >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <Text size="sm" c="dimmed">
+              Total spent
+            </Text>
+            <Text fw={600} size="xl">
+              {formatAmount(primaryTotal, primaryCurrency)}
+            </Text>
+            <Text size="xs" c="dimmed" mt={6}>
+              {currencyTotals.length > 1
+                ? `Across ${currencyTotals.length} currencies`
+                : `${primaryCount} expenses`}
+            </Text>
+          </Card>
+
+          <Card
+            padding="lg"
+            radius="md"
+            style={{
+              backgroundColor: "var(--app-panel)",
+              border: "1px solid var(--app-border)",
+            }}
+          >
+            <Text size="sm" c="dimmed">
+              Daily pace
+            </Text>
+            <Text fw={600} size="xl">
+              {formatAmount(averagePerDay, primaryCurrency)}
+            </Text>
+            <Text size="xs" c="dimmed" mt={6}>
+              {formatDateOnly(startDate)} to {formatDateOnly(rangeEndDate)}
+            </Text>
+          </Card>
+
+          <Card
+            padding="lg"
+            radius="md"
+            style={{
+              backgroundColor: "var(--app-panel)",
+              border: "1px solid var(--app-border)",
+            }}
+          >
+            <Text size="sm" c="dimmed">
+              Transactions
+            </Text>
+            <Text fw={600} size="xl">
+              {pagination?.total ?? entries.length}
+            </Text>
+            <Text size="xs" c="dimmed" mt={6}>
+              {pagination?.total_pages
+                ? `${pagination.total_pages} pages`
+                : "Latest activity"}
+            </Text>
+          </Card>
+
+          <Card
+            padding="lg"
+            radius="md"
+            style={{
+              backgroundColor: "var(--app-panel)",
+              border: "1px solid var(--app-border)",
+            }}
+          >
+            <Text size="sm" c="dimmed">
+              Focus currency
+            </Text>
+            <Text fw={600} size="xl">
+              {primaryCurrency ?? "Mixed"}
+            </Text>
+            <Text size="xs" c="dimmed" mt={6}>
+              {primaryCurrency ? "Dominant spend" : "Multiple currencies"}
+            </Text>
+          </Card>
+        </SimpleGrid>
+
+        <Grid gutter="xl">
+          <GridCol span={{ base: 12, lg: 8 }}>
+            <Card
+              padding="lg"
+              radius="md"
+              style={{
+                backgroundColor: "var(--app-panel-strong)",
+                border: "1px solid var(--app-border)",
+              }}
+            >
+              <Group justify="space-between" mb="md">
+                <Text fw={600}>Recent transactions</Text>
+                <Badge variant="light" color="gray">
+                  {recentExpenses.length} entries
+                </Badge>
+              </Group>
+              <TransactionsTable entries={recentExpenses} maxRows={12} />
+            </Card>
+          </GridCol>
+
+          <GridCol span={{ base: 12, lg: 4 }}>
+            <Stack gap="xl">
+              <Card
+                padding="lg"
+                radius="md"
+                style={{
+                  backgroundColor: "var(--app-panel)",
+                  border: "1px solid var(--app-border)",
+                }}
+              >
+                <Text fw={600} mb="md">
+                  Top categories
+                </Text>
+                <Stack gap="md">
+                  {topCategories.length === 0 ? (
+                    <Text size="sm" c="dimmed">
+                      No category data available yet.
+                    </Text>
+                  ) : null}
+                  {topCategories.map(([name, value]) => (
+                    <div key={name}>
+                      <Group justify="space-between" mb={6}>
+                        <Text size="sm">{name}</Text>
+                        <Text size="sm" fw={600}>
+                          {formatAmount(value, primaryCurrency)}
+                        </Text>
+                      </Group>
+                      <Progress
+                        radius="xl"
+                        value={(value / (topCategories[0]?.[1] || 1)) * 100}
+                        color="teal"
+                      />
+                    </div>
+                  ))}
+                </Stack>
+              </Card>
+
+              <Card
+                padding="lg"
+                radius="md"
+                style={{
+                  backgroundColor: "var(--app-panel)",
+                  border: "1px solid var(--app-border)",
+                }}
+              >
+                <Text fw={600} mb="md">
+                  Budgets
+                </Text>
+                <Stack gap="md">
+                  {budgetsWithLimits.length === 0 ? (
+                    <Text size="sm" c="dimmed">
+                      No budget data available yet.
+                    </Text>
+                  ) : null}
+                  {budgetsWithLimits.map((budget) => {
+                    const percent =
+                      budget.limit > 0
+                        ? Math.min(100, (budget.spent / budget.limit) * 100)
+                        : 0;
+                    const overBy =
+                      budget.limit > 0 ? budget.spent - budget.limit : 0;
+                    const isOver = overBy > 0;
+
+                    return (
+                      <div key={budget.id}>
+                        <Group justify="space-between" mb={6}>
+                          <Text size="sm">{budget.name}</Text>
+                          <Text size="sm" fw={600}>
+                            {budget.limit > 0
+                              ? `${formatAmount(
+                                  budget.spent,
+                                  budget.currencyCode,
+                                  budget.currencySymbol,
+                                )} of ${formatAmount(
+                                  budget.limit,
+                                  budget.limitCurrencyCode ??
+                                    budget.currencyCode,
+                                  budget.limitCurrencySymbol ??
+                                    budget.currencySymbol,
+                                )}`
+                              : `Spent ${formatAmount(
+                                  budget.spent,
+                                  budget.currencyCode,
+                                  budget.currencySymbol,
+                                )}`}
+                          </Text>
+                        </Group>
+                        {budget.limit > 0 ? (
+                          <>
+                            <Progress
+                              radius="xl"
+                              value={percent}
+                              color={isOver ? "red" : "cyan"}
+                            />
+                            <Text size="xs" c={isOver ? "red" : "dimmed"} mt={6}>
+                              {isOver
+                                ? `Over by ${formatAmount(
+                                    overBy,
+                                    budget.limitCurrencyCode ??
+                                      budget.currencyCode,
+                                    budget.limitCurrencySymbol ??
+                                      budget.currencySymbol,
+                                  )}`
+                                : "Within budget"}
+                            </Text>
+                          </>
+                        ) : (
+                          <Text size="xs" c="dimmed">
+                            No limit set.
+                          </Text>
+                        )}
+                      </div>
+                    );
+                  })}
+                </Stack>
+              </Card>
+            </Stack>
+          </GridCol>
+        </Grid>
+      </Stack>
+    </Container>
   );
 }

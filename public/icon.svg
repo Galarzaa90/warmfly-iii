@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Warmfly icon">
+  <defs>
+    <linearGradient id="wing" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22c55e"/>
+      <stop offset="1" stop-color="#14b8a6"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="120" fill="#0b0f1a"/>
+  <path
+    d="M128 320c60-116 120-172 256-208-20 124-64 220-160 256-48 18-84 12-96-48z"
+    fill="url(#wing)"
+  />
+  <circle cx="352" cy="168" r="22" fill="#e6edf3"/>
+  <path
+    d="M160 352c32-20 68-44 116-66"
+    stroke="#1f2937"
+    stroke-width="24"
+    stroke-linecap="round"
+  />
+</svg>
