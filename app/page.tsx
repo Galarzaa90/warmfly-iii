@@ -14,7 +14,14 @@ import {
 } from "@mantine/core";
 import DateRangeFilter from "./components/date-range-filter";
 import TransactionsTable from "./components/transactions-table";
-import { fetchBudgetLimits, fetchBudgets, fetchExpenses } from "./lib/firefly";
+import {
+  fetchBudgetLimits,
+  fetchBudgets,
+  fetchExpenses,
+  type BudgetEntry,
+  type BudgetLimitEntry,
+  type ExpenseEntry,
+} from "./lib/firefly";
 
 const DAYS = 30;
 const CATEGORY_COLORS = [
@@ -124,10 +131,12 @@ export default async function Home({
     rangeLabel = formatMonthYear(startDate);
   }
 
-  let entries = [];
-  let pagination;
-  let budgetLimits = [];
-  let budgets = [];
+  type ExpensesResponse = Awaited<ReturnType<typeof fetchExpenses>>;
+
+  let entries: ExpenseEntry[] = [];
+  let pagination: ExpensesResponse["pagination"];
+  let budgetLimits: BudgetLimitEntry[] = [];
+  let budgets: BudgetEntry[] = [];
   let errorMessage: string | null = null;
 
   try {

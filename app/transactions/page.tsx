@@ -16,6 +16,10 @@ import {
   fetchCategories,
   fetchExpenses,
   fetchTags,
+  type AccountEntry,
+  type CategoryEntry,
+  type ExpenseEntry,
+  type TagEntry,
 } from "../lib/firefly";
 
 const DAYS = 30;
@@ -86,11 +90,13 @@ export default async function TransactionsPage({
     presetMonth = formatDateOnly(startDate).slice(0, 7);
   }
 
-  let entries = [];
-  let pagination;
-  let accounts = [];
-  let categories = [];
-  let labels = [];
+  type ExpensesResponse = Awaited<ReturnType<typeof fetchExpenses>>;
+
+  let entries: ExpenseEntry[] = [];
+  let pagination: ExpensesResponse["pagination"];
+  let accounts: AccountEntry[] = [];
+  let categories: CategoryEntry[] = [];
+  let labels: TagEntry[] = [];
   let errorMessage: string | null = null;
 
   try {
