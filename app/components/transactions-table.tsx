@@ -3,6 +3,7 @@
 import {
   Badge,
   Group,
+  Paper,
   Stack,
   Table,
   TableTbody,
@@ -13,6 +14,7 @@ import {
   Text,
   Tooltip,
 } from "@mantine/core";
+import { useMediaQuery } from "@mantine/hooks";
 import { TransferArrowIcon } from "./icons";
 
 export type TransactionRow = {
@@ -211,183 +213,272 @@ function BudgetIcon() {
   );
 }
 
+function AccountBadges({
+  entry,
+  size = "lg",
+}: {
+  entry: TransactionRow;
+  size?: "sm" | "md" | "lg";
+}) {
+  if (entry.type === "transfer") {
+    return (
+      <Group gap="xs" align="center" wrap="wrap">
+        <Tooltip label={`Account: ${normalizeAccountName(entry.source)}`} withArrow>
+          <span style={{ display: "inline-flex" }}>
+            <Badge
+              size={size}
+              variant="light"
+              color={accountColor(normalizeAccountName(entry.source))}
+              style={{ textTransform: "none" }}
+            >
+              {normalizeAccountName(entry.source)}
+            </Badge>
+          </span>
+        </Tooltip>
+        <Text size="xs" c="dimmed">
+          <TransferArrowIcon size={12} />
+        </Text>
+        <Tooltip
+          label={`Account: ${normalizeAccountName(entry.destination)}`}
+          withArrow
+        >
+          <span style={{ display: "inline-flex" }}>
+            <Badge
+              size={size}
+              variant="light"
+              color={accountColor(normalizeAccountName(entry.destination))}
+              style={{ textTransform: "none" }}
+            >
+              {normalizeAccountName(entry.destination)}
+            </Badge>
+          </span>
+        </Tooltip>
+      </Group>
+    );
+  }
+
+  const accountName = normalizeAccountName(
+    entry.type === "deposit" || entry.type === "income"
+      ? entry.destination
+      : entry.source,
+  );
+
+  return (
+    <Tooltip label={`Account: ${accountName}`} withArrow>
+      <span style={{ display: "inline-flex" }}>
+        <Badge
+          size={size}
+          variant="light"
+          color={accountColor(accountName)}
+          style={{ textTransform: "none" }}
+        >
+          {accountName}
+        </Badge>
+      </span>
+    </Tooltip>
+  );
+}
+
 export default function TransactionsTable({
   entries,
   maxRows,
   pagination,
 }: Props) {
   const rows = maxRows ? entries.slice(0, maxRows) : entries;
+  const isMobile = useMediaQuery("(max-width: 48em)") ?? false;
 
   return (
     <Stack gap="md">
-      <Table highlightOnHover horizontalSpacing="md" verticalSpacing="sm">
-        <TableThead>
-          <TableTr>
-            <TableTh>Transaction</TableTh>
-            <TableTh>Account</TableTh>
-            <TableTh>Date</TableTh>
-            <TableTh style={{ textAlign: "right" }}>Amount</TableTh>
-          </TableTr>
-        </TableThead>
-        <TableTbody>
-          {rows.map((entry) => (
-            <TableTr key={entry.id}>
-              <TableTd>
-                <Group gap="xs" align="center">
-                  <Tooltip label={formatTransactionType(entry.type)} withArrow>
-                    <span style={{ display: "inline-flex" }}>
-                      <TransactionTypeIcon type={entry.type} />
-                    </span>
-                  </Tooltip>
+      {isMobile ? (
+        <Stack gap="sm">
+          {rows.map((entry) => {
+            const hasMetaBadges =
+              Boolean(entry.category) ||
+              Boolean(entry.budget) ||
+              Boolean(entry.tags?.length);
+
+            return (
+              <Paper key={entry.id} withBorder radius="md" p="md">
+                <Group justify="space-between" align="flex-start" wrap="nowrap">
+                  <Group gap="xs" align="center" wrap="nowrap">
+                    <Tooltip label={formatTransactionType(entry.type)} withArrow>
+                      <span style={{ display: "inline-flex" }}>
+                        <TransactionTypeIcon type={entry.type} />
+                      </span>
+                    </Tooltip>
+                    <Text fw={600} size="sm" lineClamp={2}>
+                      {entry.title}
+                    </Text>
+                  </Group>
                   <Text fw={600} size="sm">
-                    {entry.title}
+                    {formatAmount(
+                      entry.amountValue,
+                      entry.currencyCode,
+                      entry.currencySymbol,
+                    )}
                   </Text>
                 </Group>
-                <Group gap="xs" mt={6} wrap="wrap">
-                  {entry.category ? (
-                    <Tooltip label={`Category: ${entry.category}`} withArrow>
-                      <span style={{ display: "inline-flex" }}>
-                        <Badge
-                          size="md"
-                          variant="light"
-                          color="teal"
-                          style={{ textTransform: "none" }}
-                          leftSection={<CategoryIcon />}
-                        >
-                          {entry.category}
-                        </Badge>
-                      </span>
-                    </Tooltip>
-                  ) : null}
-                  {entry.budget ? (
-                    <Tooltip label={`Budget: ${entry.budget}`} withArrow>
-                      <span style={{ display: "inline-flex" }}>
-                        <Badge
-                          size="md"
-                          variant="light"
-                          color="cyan"
-                          style={{ textTransform: "none" }}
-                          leftSection={<BudgetIcon />}
-                        >
-                          {entry.budget}
-                        </Badge>
-                      </span>
-                    </Tooltip>
-                  ) : null}
-                  {entry.tags?.map((tag) => (
-                    <Tooltip key={tag} label={`Label: ${tag}`} withArrow>
-                      <span style={{ display: "inline-flex" }}>
-                        <Badge
-                          size="md"
-                          variant="light"
-                          color="gray"
-                          style={{ textTransform: "none" }}
-                          leftSection={<LabelIcon />}
-                        >
-                          {tag}
-                        </Badge>
-                      </span>
-                    </Tooltip>
-                  ))}
-                </Group>
-              </TableTd>
-              <TableTd>
-                {entry.type === "transfer" ? (
-                  <Group gap="xs" align="center" wrap="wrap">
-                    <Tooltip
-                      label={`Account: ${normalizeAccountName(entry.source)}`}
-                      withArrow
-                    >
-                      <span style={{ display: "inline-flex" }}>
-                        <Badge
-                          size="lg"
-                          variant="light"
-                          color={accountColor(
-                            normalizeAccountName(entry.source),
-                          )}
-                          style={{ textTransform: "none" }}
-                        >
-                          {normalizeAccountName(entry.source)}
-                        </Badge>
-                      </span>
-                    </Tooltip>
-                    <Text size="xs" c="dimmed">
-                      <TransferArrowIcon size={14} />
-                    </Text>
-                    <Tooltip
-                      label={`Account: ${normalizeAccountName(
-                        entry.destination,
-                      )}`}
-                      withArrow
-                    >
-                      <span style={{ display: "inline-flex" }}>
-                        <Badge
-                          size="lg"
-                          variant="light"
-                          color={accountColor(
-                            normalizeAccountName(entry.destination),
-                          )}
-                          style={{ textTransform: "none" }}
-                        >
-                          {normalizeAccountName(entry.destination)}
-                        </Badge>
-                      </span>
-                    </Tooltip>
-                  </Group>
-                ) : (
-                  <Tooltip
-                    label={`Account: ${normalizeAccountName(
-                      entry.type === "deposit" || entry.type === "income"
-                        ? entry.destination
-                        : entry.source,
-                    )}`}
-                    withArrow
-                  >
+                <Group gap="xs" mt="xs" align="center" wrap="wrap">
+                  <Tooltip label={formatFullDate(entry.date)} withArrow>
                     <span style={{ display: "inline-flex" }}>
-                      <Badge
-                        size="lg"
-                        variant="light"
-                        color={accountColor(
-                          normalizeAccountName(
-                            entry.type === "deposit" || entry.type === "income"
-                              ? entry.destination
-                              : entry.source,
-                          ),
-                        )}
-                        style={{ textTransform: "none" }}
-                      >
-                        {normalizeAccountName(
-                          entry.type === "deposit" || entry.type === "income"
-                            ? entry.destination
-                            : entry.source,
-                        )}
-                      </Badge>
+                      <Text size="xs" c="dimmed">
+                        {formatDate(entry.date)}
+                      </Text>
                     </span>
                   </Tooltip>
-                )}
-              </TableTd>
-              <TableTd>
-                <Tooltip label={formatFullDate(entry.date)} withArrow>
-                  <span style={{ display: "inline-flex" }}>
-                    <Text size="sm" component="span">
-                      {formatDate(entry.date)}
-                    </Text>
-                  </span>
-                </Tooltip>
-              </TableTd>
-              <TableTd style={{ textAlign: "right" }}>
-                <Text fw={600} size="sm">
-                  {formatAmount(
-                    entry.amountValue,
-                    entry.currencyCode,
-                    entry.currencySymbol,
-                  )}
-                </Text>
-              </TableTd>
+                  <AccountBadges entry={entry} size="sm" />
+                </Group>
+                {hasMetaBadges ? (
+                  <Group gap="xs" mt="xs" wrap="wrap">
+                    {entry.category ? (
+                      <Tooltip label={`Category: ${entry.category}`} withArrow>
+                        <span style={{ display: "inline-flex" }}>
+                          <Badge
+                            size="sm"
+                            variant="light"
+                            color="teal"
+                            style={{ textTransform: "none" }}
+                            leftSection={<CategoryIcon />}
+                          >
+                            {entry.category}
+                          </Badge>
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                    {entry.budget ? (
+                      <Tooltip label={`Budget: ${entry.budget}`} withArrow>
+                        <span style={{ display: "inline-flex" }}>
+                          <Badge
+                            size="sm"
+                            variant="light"
+                            color="cyan"
+                            style={{ textTransform: "none" }}
+                            leftSection={<BudgetIcon />}
+                          >
+                            {entry.budget}
+                          </Badge>
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                    {entry.tags?.map((tag) => (
+                      <Tooltip key={tag} label={`Label: ${tag}`} withArrow>
+                        <span style={{ display: "inline-flex" }}>
+                          <Badge
+                            size="sm"
+                            variant="light"
+                            color="gray"
+                            style={{ textTransform: "none" }}
+                            leftSection={<LabelIcon />}
+                          >
+                            {tag}
+                          </Badge>
+                        </span>
+                      </Tooltip>
+                    ))}
+                  </Group>
+                ) : null}
+              </Paper>
+            );
+          })}
+        </Stack>
+      ) : (
+        <Table highlightOnHover horizontalSpacing="md" verticalSpacing="sm">
+          <TableThead>
+            <TableTr>
+              <TableTh>Transaction</TableTh>
+              <TableTh>Account</TableTh>
+              <TableTh>Date</TableTh>
+              <TableTh style={{ textAlign: "right" }}>Amount</TableTh>
             </TableTr>
-          ))}
-        </TableTbody>
-      </Table>
+          </TableThead>
+          <TableTbody>
+            {rows.map((entry) => (
+              <TableTr key={entry.id}>
+                <TableTd>
+                  <Group gap="xs" align="center">
+                    <Tooltip label={formatTransactionType(entry.type)} withArrow>
+                      <span style={{ display: "inline-flex" }}>
+                        <TransactionTypeIcon type={entry.type} />
+                      </span>
+                    </Tooltip>
+                    <Text fw={600} size="sm">
+                      {entry.title}
+                    </Text>
+                  </Group>
+                  <Group gap="xs" mt={6} wrap="wrap">
+                    {entry.category ? (
+                      <Tooltip label={`Category: ${entry.category}`} withArrow>
+                        <span style={{ display: "inline-flex" }}>
+                          <Badge
+                            size="md"
+                            variant="light"
+                            color="teal"
+                            style={{ textTransform: "none" }}
+                            leftSection={<CategoryIcon />}
+                          >
+                            {entry.category}
+                          </Badge>
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                    {entry.budget ? (
+                      <Tooltip label={`Budget: ${entry.budget}`} withArrow>
+                        <span style={{ display: "inline-flex" }}>
+                          <Badge
+                            size="md"
+                            variant="light"
+                            color="cyan"
+                            style={{ textTransform: "none" }}
+                            leftSection={<BudgetIcon />}
+                          >
+                            {entry.budget}
+                          </Badge>
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                    {entry.tags?.map((tag) => (
+                      <Tooltip key={tag} label={`Label: ${tag}`} withArrow>
+                        <span style={{ display: "inline-flex" }}>
+                          <Badge
+                            size="md"
+                            variant="light"
+                            color="gray"
+                            style={{ textTransform: "none" }}
+                            leftSection={<LabelIcon />}
+                          >
+                            {tag}
+                          </Badge>
+                        </span>
+                      </Tooltip>
+                    ))}
+                  </Group>
+                </TableTd>
+                <TableTd>
+                  <AccountBadges entry={entry} />
+                </TableTd>
+                <TableTd>
+                  <Tooltip label={formatFullDate(entry.date)} withArrow>
+                    <span style={{ display: "inline-flex" }}>
+                      <Text size="sm" component="span">
+                        {formatDate(entry.date)}
+                      </Text>
+                    </span>
+                  </Tooltip>
+                </TableTd>
+                <TableTd style={{ textAlign: "right" }}>
+                  <Text fw={600} size="sm">
+                    {formatAmount(
+                      entry.amountValue,
+                      entry.currencyCode,
+                      entry.currencySymbol,
+                    )}
+                  </Text>
+                </TableTd>
+              </TableTr>
+            ))}
+          </TableTbody>
+        </Table>
+      )}
       {pagination ?? null}
     </Stack>
   );

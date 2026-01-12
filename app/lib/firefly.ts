@@ -57,25 +57,6 @@ type FireflyBudgetResponse = {
   data: FireflyBudget[];
 };
 
-type FireflyBudgetLimit = {
-  id: string;
-  attributes: {
-    budget_id: string;
-    amount: string;
-    currency_code?: string | null;
-    currency_symbol?: string | null;
-    spent?: Array<{
-      sum: string;
-      currency_code?: string | null;
-      currency_symbol?: string | null;
-    }>;
-  };
-};
-
-type FireflyBudgetLimitResponse = {
-  data: FireflyBudgetLimit[];
-};
-
 type FireflyAccount = {
   id: string;
   attributes: {
@@ -110,6 +91,17 @@ type FireflyTagResponse = {
   data: FireflyTag[];
 };
 
+type FireflyInsightTotalEntry = {
+  difference?: string;
+  currency_code?: string | null;
+};
+
+type FireflyInsightGroupEntry = {
+  name?: string;
+  difference?: string;
+  currency_code?: string | null;
+};
+
 export type ExpenseEntry = {
   id: string;
   title: string;
@@ -126,15 +118,6 @@ export type ExpenseEntry = {
   categoryId?: string | null;
   budget?: string | null;
   tags?: string[] | null;
-};
-
-export type BudgetLimitEntry = {
-  id: string;
-  budgetId: string;
-  limit: number;
-  spent: number;
-  currencyCode?: string | null;
-  currencySymbol?: string | null;
 };
 
 export type BudgetEntry = {
@@ -160,6 +143,17 @@ export type CategoryEntry = {
 export type TagEntry = {
   id: string;
   name: string;
+};
+
+export type InsightTotalEntry = {
+  amount: number;
+  currencyCode?: string | null;
+};
+
+export type InsightCategoryEntry = {
+  name: string;
+  amount: number;
+  currencyCode?: string | null;
 };
 
 function requireEnv(value: string | undefined, key: string) {
@@ -333,39 +327,6 @@ export async function fetchBudgets({
   );
 }
 
-export async function fetchBudgetLimits({
-  start,
-  end,
-}: {
-  start: string;
-  end: string;
-}) {
-  const payload = (await fireflyFetch("/v1/budget-limits", {
-    start,
-    end,
-  })) as FireflyBudgetLimitResponse;
-
-  return (
-    payload.data?.map((limit) => {
-      const spentEntry = limit.attributes.spent?.[0];
-      const spentValue = Math.abs(
-        Number.parseFloat(spentEntry?.sum ?? "0"),
-      );
-      const limitValue = Math.abs(Number.parseFloat(limit.attributes.amount));
-
-      return {
-        id: limit.id,
-        budgetId: limit.attributes.budget_id,
-        limit: Number.isNaN(limitValue) ? 0 : limitValue,
-        spent: Number.isNaN(spentValue) ? 0 : spentValue,
-        currencyCode:
-          spentEntry?.currency_code ?? limit.attributes.currency_code,
-        currencySymbol:
-          spentEntry?.currency_symbol ?? limit.attributes.currency_symbol,
-      } satisfies BudgetLimitEntry;
-    }) ?? []
-  );
-}
 
 export async function fetchAccounts() {
   const payload = (await fireflyFetch("/v1/accounts", {
@@ -404,5 +365,78 @@ export async function fetchTags() {
       id: tag.id,
       name: tag.attributes.tag,
     })) ?? []
+  );
+}
+
+export async function fetchInsightTotals({
+  type,
+  start,
+  end,
+}: {
+  type: "expense" | "income" | "transfer";
+  start: string;
+  end: string;
+}) {
+  const payload = (await fireflyFetch(`/v1/insight/${type}/total`, {
+    start,
+    end,
+  })) as FireflyInsightTotalEntry[];
+
+  return (
+    payload?.map((entry) => {
+      const amount = Math.abs(Number.parseFloat(entry.difference ?? "0"));
+      return {
+        amount: Number.isNaN(amount) ? 0 : amount,
+        currencyCode: entry.currency_code,
+      } satisfies InsightTotalEntry;
+    }) ?? []
+  );
+}
+
+export async function fetchInsightExpenseCategories({
+  start,
+  end,
+}: {
+  start: string;
+  end: string;
+}) {
+  const payload = (await fireflyFetch("/v1/insight/expense/category", {
+    start,
+    end,
+  })) as FireflyInsightGroupEntry[];
+
+  return (
+    payload?.map((entry) => {
+      const amount = Math.abs(Number.parseFloat(entry.difference ?? "0"));
+      return {
+        name: entry.name ?? "Uncategorized",
+        amount: Number.isNaN(amount) ? 0 : amount,
+        currencyCode: entry.currency_code,
+      } satisfies InsightCategoryEntry;
+    }) ?? []
+  );
+}
+
+export async function fetchInsightExpenseNoCategory({
+  start,
+  end,
+}: {
+  start: string;
+  end: string;
+}) {
+  const payload = (await fireflyFetch("/v1/insight/expense/no-category", {
+    start,
+    end,
+  })) as FireflyInsightTotalEntry[];
+
+  return (
+    payload?.map((entry) => {
+      const amount = Math.abs(Number.parseFloat(entry.difference ?? "0"));
+      return {
+        name: "Uncategorized",
+        amount: Number.isNaN(amount) ? 0 : amount,
+        currencyCode: entry.currency_code,
+      } satisfies InsightCategoryEntry;
+    }) ?? []
   );
 }

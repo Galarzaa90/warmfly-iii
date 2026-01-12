@@ -15,12 +15,15 @@ import {
 import DateRangeFilter from "./components/date-range-filter";
 import TransactionsTable from "./components/transactions-table";
 import {
-  fetchBudgetLimits,
   fetchBudgets,
   fetchExpenses,
+  fetchInsightExpenseCategories,
+  fetchInsightExpenseNoCategory,
+  fetchInsightTotals,
   type BudgetEntry,
-  type BudgetLimitEntry,
   type ExpenseEntry,
+  type InsightCategoryEntry,
+  type InsightTotalEntry,
 } from "./lib/firefly";
 
 const DAYS_30 = 30;
@@ -34,15 +37,6 @@ const CATEGORY_COLORS = [
   "#f43f5e",
   "#eab308",
 ];
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "2-digit",
-  }).format(date);
-}
 
 function formatAmount(
   amount: number,
@@ -80,13 +74,6 @@ function endOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0);
 }
 
-function formatMonthYear(date: Date) {
-  return new Intl.DateTimeFormat("en-US", {
-    month: "long",
-    year: "numeric",
-  }).format(date);
-}
-
 export default async function Home({
   searchParams,
 }: {
@@ -116,119 +103,133 @@ export default async function Home({
   let startDate: Date;
   let rangeEndDate: Date;
   let presetMonth = resolvedSearchParams?.month ?? "";
-  let rangeLabel = formatMonthYear(startOfMonth(endDate));
-
   if (preset === "last-30-days") {
     startDate = new Date();
     startDate.setDate(endDate.getDate() - DAYS_30);
     rangeEndDate = endDate;
-    rangeLabel = "Last 30 days";
   } else if (preset === "last-90-days") {
     startDate = new Date();
     startDate.setDate(endDate.getDate() - DAYS_90);
     rangeEndDate = endDate;
-    rangeLabel = "Last 90 days";
   } else if (preset === "all-data") {
     startDate = new Date(ALL_DATA_START);
     rangeEndDate = endDate;
-    rangeLabel = "All data";
   } else if (preset === "month") {
     const selectedMonth = parseMonth(presetMonth) ?? startOfMonth(endDate);
     startDate = startOfMonth(selectedMonth);
     rangeEndDate = endOfMonth(selectedMonth);
     presetMonth = formatDateOnly(startDate).slice(0, 7);
-    rangeLabel = formatMonthYear(startDate);
   } else {
     startDate = startOfMonth(endDate);
     rangeEndDate = endOfMonth(endDate);
-    rangeLabel = formatMonthYear(startDate);
   }
 
-  type ExpensesResponse = Awaited<ReturnType<typeof fetchExpenses>>;
-
   let entries: ExpenseEntry[] = [];
-  let pagination: ExpensesResponse["pagination"];
-  let budgetLimits: BudgetLimitEntry[] = [];
   let budgets: BudgetEntry[] = [];
+  let expenseTotals: InsightTotalEntry[] = [];
+  let incomeTotals: InsightTotalEntry[] = [];
+  let transferTotals: InsightTotalEntry[] = [];
+  let insightCategories: InsightCategoryEntry[] = [];
+  let insightNoCategory: InsightCategoryEntry[] = [];
   let errorMessage: string | null = null;
 
   try {
-    const [transactionsResponse, budgetsResponse, limitsResponse] =
-      await Promise.all([
-        fetchExpenses({
-          start: formatDateOnly(startDate),
-          end: formatDateOnly(rangeEndDate),
-          limit: 60,
-          type: requestedType,
-        }),
-        fetchBudgets({
-          start: formatDateOnly(startDate),
-          end: formatDateOnly(rangeEndDate),
-        }),
-        fetchBudgetLimits({
-          start: formatDateOnly(startDate),
-          end: formatDateOnly(rangeEndDate),
-        }),
-      ]);
+    const [
+      transactionsResponse,
+      budgetsResponse,
+      expenseTotalsResponse,
+      incomeTotalsResponse,
+      transferTotalsResponse,
+      categoryResponse,
+      noCategoryResponse,
+    ] = await Promise.all([
+      fetchExpenses({
+        start: formatDateOnly(startDate),
+        end: formatDateOnly(rangeEndDate),
+        limit: 20,
+        type: requestedType,
+      }),
+      fetchBudgets({
+        start: formatDateOnly(startDate),
+        end: formatDateOnly(rangeEndDate),
+      }),
+      fetchInsightTotals({
+        type: "expense",
+        start: formatDateOnly(startDate),
+        end: formatDateOnly(rangeEndDate),
+      }),
+      fetchInsightTotals({
+        type: "income",
+        start: formatDateOnly(startDate),
+        end: formatDateOnly(rangeEndDate),
+      }),
+      fetchInsightTotals({
+        type: "transfer",
+        start: formatDateOnly(startDate),
+        end: formatDateOnly(rangeEndDate),
+      }),
+      fetchInsightExpenseCategories({
+        start: formatDateOnly(startDate),
+        end: formatDateOnly(rangeEndDate),
+      }),
+      fetchInsightExpenseNoCategory({
+        start: formatDateOnly(startDate),
+        end: formatDateOnly(rangeEndDate),
+      }),
+    ]);
 
     entries = transactionsResponse.entries;
-    pagination = transactionsResponse.pagination;
     budgets = budgetsResponse;
-    budgetLimits = limitsResponse;
+    expenseTotals = expenseTotalsResponse;
+    incomeTotals = incomeTotalsResponse;
+    transferTotals = transferTotalsResponse;
+    insightCategories = categoryResponse;
+    insightNoCategory = noCategoryResponse;
   } catch (error) {
     errorMessage =
       error instanceof Error ? error.message : "Unable to load expenses.";
   }
 
-  const totalsByCurrency = new Map<string, number>();
-  const countByCurrency = new Map<string, number>();
   const normalizedEntries = entries.map((entry) => {
     const amount = Math.abs(Number.parseFloat(entry.amount || "0"));
-    if (!Number.isNaN(amount) && entry.currencyCode) {
-      totalsByCurrency.set(
-        entry.currencyCode,
-        (totalsByCurrency.get(entry.currencyCode) ?? 0) + amount,
-      );
-      countByCurrency.set(
-        entry.currencyCode,
-        (countByCurrency.get(entry.currencyCode) ?? 0) + 1,
-      );
-    }
     return {
       ...entry,
       amountValue: Number.isNaN(amount) ? 0 : amount,
     };
   });
 
-  const currencyTotals = Array.from(totalsByCurrency.entries()).sort(
-    (a, b) => b[1] - a[1],
+  const primaryCurrency =
+    expenseTotals[0]?.currencyCode ?? insightCategories[0]?.currencyCode ?? null;
+
+  const sortedExpenseTotals = [...expenseTotals].sort(
+    (a, b) => b.amount - a.amount,
   );
-  const primaryCurrency = currencyTotals[0]?.[0] ?? null;
-  const primaryTotal = currencyTotals[0]?.[1] ?? 0;
-  const primaryCount = primaryCurrency
-    ? countByCurrency.get(primaryCurrency) ?? 0
-    : entries.length;
-
-  const focusEntries = primaryCurrency
-    ? normalizedEntries.filter((entry) => entry.currencyCode === primaryCurrency)
-    : normalizedEntries;
-
-  const totalSpent = focusEntries
-    .filter((entry) => entry.type === "withdrawal" || entry.type === "expense")
-    .reduce((sum, entry) => sum + entry.amountValue, 0);
-  const totalIncome = focusEntries
-    .filter((entry) => entry.type === "deposit" || entry.type === "income")
-    .reduce((sum, entry) => sum + entry.amountValue, 0);
+  const sortedIncomeTotals = [...incomeTotals].sort(
+    (a, b) => b.amount - a.amount,
+  );
+  const sortedTransferTotals = [...transferTotals].sort(
+    (a, b) => b.amount - a.amount,
+  );
 
   const byCategory = new Map<string, number>();
-  const categorySource = focusEntries.filter(
-    (entry) => entry.type === "withdrawal" || entry.type === "expense",
+  const categorySource = insightCategories.filter(
+    (entry) => (primaryCurrency ? entry.currencyCode === primaryCurrency : true),
   );
 
   categorySource.forEach((entry) => {
-    const category = entry.category || "Uncategorized";
-    byCategory.set(category, (byCategory.get(category) ?? 0) + entry.amountValue);
+    byCategory.set(entry.name, (byCategory.get(entry.name) ?? 0) + entry.amount);
   });
+
+  insightNoCategory
+    .filter((entry) =>
+      primaryCurrency ? entry.currencyCode === primaryCurrency : true,
+    )
+    .forEach((entry) => {
+      byCategory.set(
+        entry.name,
+        (byCategory.get(entry.name) ?? 0) + entry.amount,
+      );
+    });
 
   const categoryEntries = Array.from(byCategory.entries()).sort(
     (a, b) => b[1] - a[1],
@@ -256,18 +257,14 @@ export default async function Home({
     },
     { offset: 0, stops: [] as string[] },
   );
-  const limitByBudgetId = new Map(
-    budgetLimits.map((limit) => [limit.budgetId, limit]),
-  );
   const budgetsWithLimits = budgets
     .map((budget) => {
-      const limit = limitByBudgetId.get(budget.id);
-      const resolvedLimit = limit?.limit ?? budget.autoLimit ?? 0;
+      const resolvedLimit = budget.autoLimit ?? 0;
       return {
         ...budget,
         limit: resolvedLimit,
-        limitCurrencyCode: limit?.currencyCode ?? budget.currencyCode,
-        limitCurrencySymbol: limit?.currencySymbol ?? budget.currencySymbol,
+        limitCurrencyCode: budget.currencyCode,
+        limitCurrencySymbol: budget.currencySymbol,
         usage: resolvedLimit ? budget.spent / resolvedLimit : 0,
       };
     })
@@ -276,15 +273,6 @@ export default async function Home({
   const recentExpenses = [...normalizedEntries].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
-
-  const daySpan =
-    Math.max(
-      1,
-      Math.round(
-        (rangeEndDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24),
-      ) + 1,
-    );
-  const averagePerDay = primaryTotal / daySpan;
 
   return (
     <Container size="xl" py="xl">
@@ -334,11 +322,32 @@ export default async function Home({
             <Text size="sm" c="dimmed">
               Total income
             </Text>
-            <Text fw={600} size="xl">
-              {formatAmount(totalIncome, primaryCurrency)}
-            </Text>
+            {sortedIncomeTotals.length <= 1 ? (
+              <Text fw={600} size="xl">
+                {formatAmount(
+                  sortedIncomeTotals[0]?.amount ?? 0,
+                  sortedIncomeTotals[0]?.currencyCode ?? primaryCurrency,
+                )}
+              </Text>
+            ) : (
+              <Stack gap={4} mt="xs">
+                {sortedIncomeTotals.map((entry, index) => (
+                  <Group
+                    key={`${entry.currencyCode ?? "currency"}-${index}`}
+                    justify="space-between"
+                  >
+                    <Text size="sm" c="dimmed">
+                      {entry.currencyCode ?? "Unknown"}
+                    </Text>
+                    <Text size="sm" fw={600}>
+                      {formatAmount(entry.amount, entry.currencyCode)}
+                    </Text>
+                  </Group>
+                ))}
+              </Stack>
+            )}
             <Text size="xs" c="dimmed" mt={6}>
-              {primaryCurrency ? "Primary currency" : "Mixed currencies"}
+              {formatDateOnly(startDate)} to {formatDateOnly(rangeEndDate)}
             </Text>
           </Card>
 
@@ -353,13 +362,32 @@ export default async function Home({
             <Text size="sm" c="dimmed">
               Total spent
             </Text>
-            <Text fw={600} size="xl">
-              {formatAmount(totalSpent, primaryCurrency)}
-            </Text>
+            {sortedExpenseTotals.length <= 1 ? (
+              <Text fw={600} size="xl">
+                {formatAmount(
+                  sortedExpenseTotals[0]?.amount ?? 0,
+                  sortedExpenseTotals[0]?.currencyCode ?? primaryCurrency,
+                )}
+              </Text>
+            ) : (
+              <Stack gap={4} mt="xs">
+                {sortedExpenseTotals.map((entry, index) => (
+                  <Group
+                    key={`${entry.currencyCode ?? "currency"}-${index}`}
+                    justify="space-between"
+                  >
+                    <Text size="sm" c="dimmed">
+                      {entry.currencyCode ?? "Unknown"}
+                    </Text>
+                    <Text size="sm" fw={600}>
+                      {formatAmount(entry.amount, entry.currencyCode)}
+                    </Text>
+                  </Group>
+                ))}
+              </Stack>
+            )}
             <Text size="xs" c="dimmed" mt={6}>
-              {currencyTotals.length > 1
-                ? `Across ${currencyTotals.length} currencies`
-                : `${primaryCount} expenses`}
+              {formatDateOnly(startDate)} to {formatDateOnly(rangeEndDate)}
             </Text>
           </Card>
 
@@ -372,11 +400,32 @@ export default async function Home({
             }}
           >
             <Text size="sm" c="dimmed">
-              Daily pace
+              Total transfers
             </Text>
-            <Text fw={600} size="xl">
-              {formatAmount(averagePerDay, primaryCurrency)}
-            </Text>
+            {sortedTransferTotals.length <= 1 ? (
+              <Text fw={600} size="xl">
+                {formatAmount(
+                  sortedTransferTotals[0]?.amount ?? 0,
+                  sortedTransferTotals[0]?.currencyCode ?? primaryCurrency,
+                )}
+              </Text>
+            ) : (
+              <Stack gap={4} mt="xs">
+                {sortedTransferTotals.map((entry, index) => (
+                  <Group
+                    key={`${entry.currencyCode ?? "currency"}-${index}`}
+                    justify="space-between"
+                  >
+                    <Text size="sm" c="dimmed">
+                      {entry.currencyCode ?? "Unknown"}
+                    </Text>
+                    <Text size="sm" fw={600}>
+                      {formatAmount(entry.amount, entry.currencyCode)}
+                    </Text>
+                  </Group>
+                ))}
+              </Stack>
+            )}
             <Text size="xs" c="dimmed" mt={6}>
               {formatDateOnly(startDate)} to {formatDateOnly(rangeEndDate)}
             </Text>
@@ -400,7 +449,7 @@ export default async function Home({
                   {recentExpenses.length} entries
                 </Badge>
               </Group>
-              <TransactionsTable entries={recentExpenses} maxRows={12} />
+              <TransactionsTable entries={recentExpenses} maxRows={20} />
             </Card>
           </GridCol>
 
