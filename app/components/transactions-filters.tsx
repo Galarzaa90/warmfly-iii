@@ -1,6 +1,6 @@
 "use client";
 
-import { MultiSelect, Select } from "@mantine/core";
+import { Select } from "@mantine/core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
@@ -10,20 +10,17 @@ type Props = {
   categoryOptions: { value: string; label: string }[];
   labelOptions: { value: string; label: string }[];
   accountValue?: string | null;
-  categoryValues: string[];
-  labelValues: string[];
+  categoryValue?: string | null;
+  labelValue?: string | null;
 };
 
 function updateParam(
   params: URLSearchParams,
   key: string,
-  value: string | string[] | null,
+  value: string | null,
 ) {
   const updated = new URLSearchParams(params);
-  if (Array.isArray(value)) {
-    if (value.length > 0) updated.set(key, value.join(","));
-    else updated.delete(key);
-  } else if (value) {
+  if (value) {
     updated.set(key, value);
   } else {
     updated.delete(key);
@@ -37,8 +34,8 @@ export default function TransactionsFilters({
   categoryOptions,
   labelOptions,
   accountValue,
-  categoryValues,
-  labelValues,
+  categoryValue,
+  labelValue,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -62,10 +59,10 @@ export default function TransactionsFilters({
         }}
         w={220}
       />
-      <MultiSelect
-        label="Categories"
+      <Select
+        label="Category"
         data={categoryOptions}
-        value={categoryValues}
+        value={categoryValue ?? null}
         searchable
         clearable
         onChange={(nextValue) => {
@@ -74,10 +71,10 @@ export default function TransactionsFilters({
         }}
         w={260}
       />
-      <MultiSelect
-        label="Labels"
+      <Select
+        label="Label"
         data={labelOptions}
-        value={labelValues}
+        value={labelValue ?? null}
         searchable
         clearable
         onChange={(nextValue) => {
