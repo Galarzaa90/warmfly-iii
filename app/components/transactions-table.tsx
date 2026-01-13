@@ -119,6 +119,28 @@ function formatForeignAmount(
   return `${prefix}${amount.toFixed(2)}`;
 }
 
+function formatExchangeRateLabel({
+  primaryAmount,
+  foreignAmount,
+  primarySymbol,
+  primaryCode,
+  foreignSymbol,
+}: {
+  primaryAmount: number;
+  foreignAmount: number;
+  primarySymbol?: string | null;
+  primaryCode?: string | null;
+  foreignSymbol?: string | null;
+}) {
+  if (!foreignAmount) return null;
+  const rate = primaryAmount / foreignAmount;
+  if (!Number.isFinite(rate)) return null;
+  const primaryLabel = primarySymbol ?? primaryCode ?? "";
+  const foreignLabel = foreignSymbol ?? "";
+  const primaryValue = `${primaryLabel}${rate.toFixed(4)}`;
+  return `1${foreignLabel} = ${primaryValue}`;
+}
+
 function TransactionTypeIcon({ type }: { type?: string }) {
   const icon = (() => {
     if (type === "withdrawal" || type === "expense") {
@@ -323,12 +345,25 @@ export default function TransactionsTable({
                   </Text>
                   {entry.foreignAmountValue !== null &&
                   entry.foreignAmountValue !== undefined ? (
-                    <Text size="xs" c="dimmed">
-                      {formatForeignAmount(
-                        entry.foreignAmountValue,
-                        entry.foreignCurrencySymbol,
-                      )}
-                    </Text>
+                    <Tooltip
+                      label={formatExchangeRateLabel({
+                        primaryAmount: entry.amountValue,
+                        foreignAmount: entry.foreignAmountValue,
+                        primarySymbol: entry.currencySymbol,
+                        primaryCode: entry.currencyCode,
+                        foreignSymbol: entry.foreignCurrencySymbol,
+                      })}
+                      withArrow
+                    >
+                      <span style={{ display: "inline-flex" }}>
+                        <Text size="xs" c="dimmed">
+                          {formatForeignAmount(
+                            entry.foreignAmountValue,
+                            entry.foreignCurrencySymbol,
+                          )}
+                        </Text>
+                      </span>
+                    </Tooltip>
                   ) : null}
                 </Stack>
               </Group>
@@ -498,12 +533,25 @@ export default function TransactionsTable({
                     </Text>
                     {entry.foreignAmountValue !== null &&
                     entry.foreignAmountValue !== undefined ? (
-                      <Text size="xs" c="dimmed">
-                        {formatForeignAmount(
-                          entry.foreignAmountValue,
-                          entry.foreignCurrencySymbol,
-                        )}
-                      </Text>
+                      <Tooltip
+                        label={formatExchangeRateLabel({
+                          primaryAmount: entry.amountValue,
+                          foreignAmount: entry.foreignAmountValue,
+                          primarySymbol: entry.currencySymbol,
+                          primaryCode: entry.currencyCode,
+                          foreignSymbol: entry.foreignCurrencySymbol,
+                        })}
+                        withArrow
+                      >
+                        <span style={{ display: "inline-flex" }}>
+                          <Text size="xs" c="dimmed">
+                            {formatForeignAmount(
+                              entry.foreignAmountValue,
+                              entry.foreignCurrencySymbol,
+                            )}
+                          </Text>
+                        </span>
+                      </Tooltip>
                     ) : null}
                   </Stack>
                 </TableTd>

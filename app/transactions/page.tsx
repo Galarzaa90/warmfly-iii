@@ -105,10 +105,8 @@ export default async function TransactionsPage({
     Number.isNaN(limitParam) || !PAGE_SIZE_OPTIONS.has(limitParam)
       ? 50
       : limitParam;
-  const categorySelections = categoryFilter
-    ? categoryFilter.split(",").filter(Boolean)
-    : [];
-  const labelSelections = labelFilter ? labelFilter.split(",").filter(Boolean) : [];
+  const categorySelection = categoryFilter.trim();
+  const labelSelection = labelFilter.trim();
 
   if (preset === "last-30-days") {
     startDate = new Date();
@@ -149,9 +147,9 @@ export default async function TransactionsPage({
     const categoryNameById = new Map(
       categoriesResponse.map((category) => [category.id, category.name]),
     );
-    const selectedCategoryNames = categorySelections
-      .map((id) => categoryNameById.get(id))
-      .filter((name): name is string => Boolean(name));
+    const selectedCategoryName = categorySelection
+      ? categoryNameById.get(categorySelection) ?? null
+      : null;
 
     const baseTokens = [
       `date_after:${formatDateOnly(startDate)}`,
@@ -166,20 +164,14 @@ export default async function TransactionsPage({
       baseTokens.push(`account_id:${accountFilter}`);
     }
 
-    const categoryValues = selectedCategoryNames.length
-      ? selectedCategoryNames
-      : [null];
-    const labelValues = labelSelections.length ? labelSelections : [null];
-
-    const queries: string[] = [];
-    categoryValues.forEach((category) => {
-      labelValues.forEach((label) => {
-        const tokens = [...baseTokens];
-        if (category) tokens.push(buildToken("category_is", category));
-        if (label) tokens.push(buildToken("tag_is", label));
-        queries.push(tokens.join(" "));
-      });
-    });
+    const tokens = [...baseTokens];
+    if (selectedCategoryName) {
+      tokens.push(buildToken("category_is", selectedCategoryName));
+    }
+    if (labelSelection) {
+      tokens.push(buildToken("tag_is", labelSelection));
+    }
+    const queries = [tokens.join(" ")];
 
     const searchResponses = await Promise.all(
       queries.map((query) =>
@@ -267,8 +259,8 @@ export default async function TransactionsPage({
               label: tag.name,
             }))}
             accountValue={accountFilter || null}
-            categoryValues={categorySelections}
-            labelValues={labelSelections}
+            categoryValue={categorySelection || null}
+            labelValue={labelSelection || null}
           />
         </Group>
         {errorMessage ? (
