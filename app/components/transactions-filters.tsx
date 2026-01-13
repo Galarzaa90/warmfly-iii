@@ -1,6 +1,6 @@
 "use client";
 
-import { Select } from "@mantine/core";
+import { Loader, Select } from "@mantine/core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
@@ -12,6 +12,8 @@ type Props = {
   accountValue?: string | null;
   categoryValue?: string | null;
   labelValue?: string | null;
+  isLoading?: boolean;
+  onNavigate?: (url: string) => void;
 };
 
 function updateParam(
@@ -36,6 +38,8 @@ export default function TransactionsFilters({
   accountValue,
   categoryValue,
   labelValue,
+  isLoading = false,
+  onNavigate,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -45,6 +49,14 @@ export default function TransactionsFilters({
     [searchParams],
   );
 
+  const navigate = (url: string) => {
+    if (onNavigate) {
+      onNavigate(url);
+      return;
+    }
+    router.push(url);
+  };
+
   return (
     <>
       <Select
@@ -53,9 +65,12 @@ export default function TransactionsFilters({
         value={accountValue ?? null}
         searchable
         clearable
+        disabled={isLoading}
+        rightSection={isLoading ? <Loader size="xs" /> : null}
+        rightSectionPointerEvents="none"
         onChange={(nextValue) => {
           const updated = updateParam(params, "account", nextValue);
-          router.push(`${basePath}?${updated.toString()}`);
+          navigate(`${basePath}?${updated.toString()}`);
         }}
         w={220}
       />
@@ -65,9 +80,12 @@ export default function TransactionsFilters({
         value={categoryValue ?? null}
         searchable
         clearable
+        disabled={isLoading}
+        rightSection={isLoading ? <Loader size="xs" /> : null}
+        rightSectionPointerEvents="none"
         onChange={(nextValue) => {
           const updated = updateParam(params, "categories", nextValue);
-          router.push(`${basePath}?${updated.toString()}`);
+          navigate(`${basePath}?${updated.toString()}`);
         }}
         w={260}
       />
@@ -77,9 +95,12 @@ export default function TransactionsFilters({
         value={labelValue ?? null}
         searchable
         clearable
+        disabled={isLoading}
+        rightSection={isLoading ? <Loader size="xs" /> : null}
+        rightSectionPointerEvents="none"
         onChange={(nextValue) => {
           const updated = updateParam(params, "labels", nextValue);
-          router.push(`${basePath}?${updated.toString()}`);
+          navigate(`${basePath}?${updated.toString()}`);
         }}
         w={240}
       />

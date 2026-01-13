@@ -1,14 +1,20 @@
 "use client";
 
-import { Select } from "@mantine/core";
+import { Loader, Select } from "@mantine/core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
 type Props = {
   value: string;
+  isLoading?: boolean;
+  onNavigate?: (url: string) => void;
 };
 
-export default function TypeFilter({ value }: Props) {
+export default function TypeFilter({
+  value,
+  isLoading = false,
+  onNavigate,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -16,6 +22,14 @@ export default function TypeFilter({ value }: Props) {
     () => new URLSearchParams(searchParams?.toString()),
     [searchParams],
   );
+
+  const navigate = (url: string) => {
+    if (onNavigate) {
+      onNavigate(url);
+      return;
+    }
+    router.push(url);
+  };
 
   return (
     <Select
@@ -27,6 +41,9 @@ export default function TypeFilter({ value }: Props) {
         { value: "deposit", label: "Deposits" },
         { value: "transfer", label: "Transfers" },
       ]}
+      disabled={isLoading}
+      rightSection={isLoading ? <Loader size="xs" /> : null}
+      rightSectionPointerEvents="none"
       onChange={(nextValue) => {
         if (!nextValue) return;
         const updated = new URLSearchParams(params);
@@ -35,7 +52,7 @@ export default function TypeFilter({ value }: Props) {
         } else {
           updated.set("type", nextValue);
         }
-        router.push(`/transactions?${updated.toString()}`);
+        navigate(`/transactions?${updated.toString()}`);
       }}
       w={200}
     />

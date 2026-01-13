@@ -4,6 +4,7 @@ import {
   Badge,
   Group,
   Paper,
+  Skeleton,
   Stack,
   Table,
   TableTbody,
@@ -38,6 +39,7 @@ type Props = {
   entries: TransactionRow[];
   maxRows?: number;
   pagination?: React.ReactNode;
+  isLoading?: boolean;
 };
 
 const ACCOUNT_COLORS = [
@@ -308,13 +310,72 @@ export default function TransactionsTable({
   entries,
   maxRows,
   pagination,
+  isLoading = false,
 }: Props) {
   const rows = maxRows ? entries.slice(0, maxRows) : entries;
   const isMobile = useMediaQuery("(max-width: 48em)") ?? false;
+  const hasRows = rows.length > 0;
+
+  if (isLoading) {
+    return (
+      <Stack gap="md">
+        {isMobile ? (
+          <Stack gap="sm">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <Paper key={`loading-card-${index}`} withBorder radius="md" p="md">
+                <Stack gap="xs">
+                  <Skeleton height={12} width="60%" />
+                  <Skeleton height={10} width="40%" />
+                  <Group gap="xs" mt="xs" wrap="wrap">
+                    <Skeleton height={18} width={64} radius="xl" />
+                    <Skeleton height={18} width={88} radius="xl" />
+                  </Group>
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        ) : (
+          <Table highlightOnHover horizontalSpacing="md" verticalSpacing="sm">
+            <TableThead>
+              <TableTr>
+                <TableTh>Transaction</TableTh>
+                <TableTh>Account</TableTh>
+                <TableTh>Date</TableTh>
+                <TableTh style={{ textAlign: "right" }}>Amount</TableTh>
+              </TableTr>
+            </TableThead>
+            <TableTbody>
+              {Array.from({ length: 6 }).map((_, index) => (
+                <TableTr key={`loading-row-${index}`}>
+                  <TableTd>
+                    <Stack gap={6}>
+                      <Skeleton height={12} width="70%" />
+                      <Skeleton height={10} width="45%" />
+                    </Stack>
+                  </TableTd>
+                  <TableTd>
+                    <Skeleton height={18} width={120} radius="xl" />
+                  </TableTd>
+                  <TableTd>
+                    <Skeleton height={12} width={72} />
+                  </TableTd>
+                  <TableTd style={{ textAlign: "right" }}>
+                    <Skeleton height={12} width={88} />
+                  </TableTd>
+                </TableTr>
+              ))}
+            </TableTbody>
+          </Table>
+        )}
+        {pagination ?? null}
+      </Stack>
+    );
+  }
 
   return (
     <Stack gap="md">
-      {isMobile ? (
+      {hasRows ? (
+        isMobile ? (
         <Stack gap="sm">
           {rows.map((entry) => {
             const hasMetaBadges =
@@ -559,6 +620,13 @@ export default function TransactionsTable({
             ))}
           </TableTbody>
         </Table>
+        )
+      ) : (
+        <Stack gap={0} align="center" py="xl">
+          <Text size="xs" c="dimmed">
+            No transactions found.
+          </Text>
+        </Stack>
       )}
       {pagination ?? null}
     </Stack>

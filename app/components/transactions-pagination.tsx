@@ -12,6 +12,8 @@ type Props = {
   showSelect?: boolean;
   showPagination?: boolean;
   variant?: "full" | "compact";
+  isLoading?: boolean;
+  onNavigate?: (url: string) => void;
 };
 
 const PAGE_SIZES = [10, 25, 50, 100];
@@ -38,6 +40,8 @@ export default function TransactionsPagination({
   showSelect = true,
   showPagination = true,
   variant = "full",
+  isLoading = false,
+  onNavigate,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -46,6 +50,14 @@ export default function TransactionsPagination({
     () => new URLSearchParams(searchParams?.toString()),
     [searchParams],
   );
+
+  const navigate = (url: string) => {
+    if (onNavigate) {
+      onNavigate(url);
+      return;
+    }
+    router.push(url);
+  };
 
   const selectControl = showSelect ? (
     <Group gap="xs">
@@ -58,11 +70,12 @@ export default function TransactionsPagination({
           label: String(value),
         }))}
         value={String(limit)}
+        disabled={isLoading}
         onChange={(nextValue) => {
           if (!nextValue) return;
           let next = updateParam(params, "limit", nextValue);
           next = updateParam(next, "page", "1");
-          router.push(`${basePath}?${next.toString()}`);
+          navigate(`${basePath}?${next.toString()}`);
         }}
         w={120}
       />
@@ -74,9 +87,10 @@ export default function TransactionsPagination({
       <Pagination
         total={totalPages}
         value={page}
+        disabled={isLoading}
         onChange={(nextPage) => {
           const next = updateParam(params, "page", String(nextPage));
-          router.push(`${basePath}?${next.toString()}`);
+          navigate(`${basePath}?${next.toString()}`);
         }}
       />
     ) : null;

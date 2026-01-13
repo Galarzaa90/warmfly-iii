@@ -1,17 +1,5 @@
-import {
-  Badge,
-  Card,
-  Container,
-  Group,
-  Paper,
-  Stack,
-  Text,
-} from "@mantine/core";
-import DateRangeFilter from "../components/date-range-filter";
-import TransactionsFilters from "../components/transactions-filters";
-import TransactionsTable from "../components/transactions-table";
-import TypeFilter from "../components/type-filter";
-import TransactionsPagination from "../components/transactions-pagination";
+import { Container } from "@mantine/core";
+import TransactionsPanel from "../components/transactions-panel";
 import {
   fetchAccounts,
   fetchCategories,
@@ -223,102 +211,48 @@ export default async function TransactionsPage({
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
   );
 
+  const dateRangeValue =
+    preset === "last-30-days"
+      ? "last-30-days"
+      : preset === "last-90-days"
+        ? "last-90-days"
+        : preset === "all-data"
+          ? "all-data"
+          : `month:${presetMonth}`;
+
   return (
     <Container size="xl" py="xl">
-      <Stack gap="xl">
-        <Group gap="md" align="center" wrap="wrap">
-          <TypeFilter value={requestedType ?? "all"} />
-          <DateRangeFilter
-            value={
-              preset === "last-30-days"
-                ? "last-30-days"
-                : preset === "last-90-days"
-                  ? "last-90-days"
-                  : preset === "all-data"
-                    ? "all-data"
-                    : `month:${presetMonth}`
-            }
-            basePath="/transactions"
-          />
-          <TransactionsFilters
-            accountOptions={accounts
-              .filter((account) => {
-                const type = (account.type ?? "").toLowerCase();
-                return type !== "initial-balance" && type !== "reconciliation";
-              })
-              .map((account) => ({
-                value: account.id,
-                label: account.name,
-              }))}
-            categoryOptions={categories.map((category) => ({
-              value: category.id,
-              label: category.name,
-            }))}
-            labelOptions={labels.map((tag) => ({
-              value: tag.name,
-              label: tag.name,
-            }))}
-            accountValue={accountFilter || null}
-            categoryValue={categorySelection || null}
-            labelValue={labelSelection || null}
-          />
-        </Group>
-        {errorMessage ? (
-          <Paper
-            radius="md"
-            p="lg"
-            style={{
-              backgroundColor: "var(--app-panel-strong)",
-              border: "1px solid #3a1b1b",
-            }}
-          >
-            <Text fw={600} mb={4}>
-              Unable to load transactions
-            </Text>
-            <Text size="sm" c="dimmed">
-              {errorMessage}
-            </Text>
-          </Paper>
-        ) : null}
-
-        <Card
-          padding="lg"
-          radius="md"
-          style={{
-            backgroundColor: "var(--app-panel-strong)",
-            border: "1px solid var(--app-border)",
-          }}
-        >
-          <Group justify="space-between" mb="md">
-            <Text fw={600}>Transactions</Text>
-            <Group gap="md" align="center">
-              <Badge variant="light" color="gray">
-                {(totalMatches ?? recentEntries.length)} entries
-              </Badge>
-              <TransactionsPagination
-                page={page}
-                totalPages={totalPages}
-                limit={limit}
-                basePath="/transactions"
-                showPagination={false}
-                variant="compact"
-              />
-            </Group>
-          </Group>
-          <TransactionsTable
-            entries={recentEntries}
-            pagination={
-              <TransactionsPagination
-                page={page}
-                totalPages={totalPages}
-                limit={limit}
-                basePath="/transactions"
-                showSelect={false}
-              />
-            }
-          />
-        </Card>
-      </Stack>
+      <TransactionsPanel
+        requestedType={requestedType ?? "all"}
+        dateRangeValue={dateRangeValue}
+        basePath="/transactions"
+        accountOptions={accounts
+          .filter((account) => {
+            const type = (account.type ?? "").toLowerCase();
+            return type !== "initial-balance" && type !== "reconciliation";
+          })
+          .map((account) => ({
+            value: account.id,
+            label: account.name,
+          }))}
+        categoryOptions={categories.map((category) => ({
+          value: category.id,
+          label: category.name,
+        }))}
+        labelOptions={labels.map((tag) => ({
+          value: tag.name,
+          label: tag.name,
+        }))}
+        accountValue={accountFilter || null}
+        categoryValue={categorySelection || null}
+        labelValue={labelSelection || null}
+        entries={recentEntries}
+        totalMatches={totalMatches}
+        page={page}
+        totalPages={totalPages}
+        limit={limit}
+        errorMessage={errorMessage}
+      />
     </Container>
   );
 }

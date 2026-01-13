@@ -1,12 +1,14 @@
 "use client";
 
-import { Group, Select } from "@mantine/core";
+import { Group, Loader, Select } from "@mantine/core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
 type Props = {
   value: string;
   basePath?: string;
+  isLoading?: boolean;
+  onNavigate?: (url: string) => void;
 };
 
 function updateParams(
@@ -25,7 +27,12 @@ function updateParams(
   return updated;
 }
 
-export default function DateRangeFilter({ value, basePath = "/" }: Props) {
+export default function DateRangeFilter({
+  value,
+  basePath = "/",
+  isLoading = false,
+  onNavigate,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -64,12 +71,23 @@ export default function DateRangeFilter({ value, basePath = "/" }: Props) {
     ];
   }, []);
 
+  const navigate = (url: string) => {
+    if (onNavigate) {
+      onNavigate(url);
+      return;
+    }
+    router.push(url);
+  };
+
   return (
     <Group gap="md" wrap="wrap">
       <Select
         label="Range"
         value={value}
         data={options}
+        disabled={isLoading}
+        rightSection={isLoading ? <Loader size="xs" /> : null}
+        rightSectionPointerEvents="none"
         onChange={(nextValue) => {
           if (!nextValue) return;
           if (nextValue === "last-30-days") {
@@ -77,7 +95,7 @@ export default function DateRangeFilter({ value, basePath = "/" }: Props) {
               preset: "last-30-days",
               month: "",
             });
-            router.push(`${basePath}?${next.toString()}`);
+            navigate(`${basePath}?${next.toString()}`);
             return;
           }
           if (nextValue === "last-90-days") {
@@ -85,7 +103,7 @@ export default function DateRangeFilter({ value, basePath = "/" }: Props) {
               preset: "last-90-days",
               month: "",
             });
-            router.push(`${basePath}?${next.toString()}`);
+            navigate(`${basePath}?${next.toString()}`);
             return;
           }
           if (nextValue === "all-data") {
@@ -93,13 +111,13 @@ export default function DateRangeFilter({ value, basePath = "/" }: Props) {
               preset: "all-data",
               month: "",
             });
-            router.push(`${basePath}?${next.toString()}`);
+            navigate(`${basePath}?${next.toString()}`);
             return;
           }
           if (nextValue.startsWith("month:")) {
             const month = nextValue.replace("month:", "");
             const next = updateParams(params, { preset: "month", month });
-            router.push(`${basePath}?${next.toString()}`);
+            navigate(`${basePath}?${next.toString()}`);
           }
         }}
         maxDropdownHeight={320}
