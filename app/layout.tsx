@@ -7,6 +7,7 @@ import "./globals.css";
 import ServiceWorker from "./components/service-worker";
 import NavLinks from "./components/nav-links";
 import NavTitle from "./components/nav-title";
+import Footer from "./components/footer";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -47,46 +48,49 @@ export default function RootLayout({
         className={`${spaceGrotesk.variable} ${jetBrainsMono.variable} antialiased`}
       >
         <MantineProvider theme={theme} defaultColorScheme="dark">
-          <header
-            style={{
-              borderBottom: "1px solid var(--app-border)",
-              background: "rgba(6, 8, 15, 0.6)",
-              backdropFilter: "blur(12px)",
-            }}
-          >
-            <nav
+          <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+            <header
               style={{
-                maxWidth: 1200,
-                margin: "0 auto",
-                padding: "16px 24px",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                gap: 16,
+                borderBottom: "1px solid var(--app-border)",
+                background: "rgba(6, 8, 15, 0.6)",
+                backdropFilter: "blur(12px)",
               }}
             >
-              <div
+              <nav
                 style={{
-                  fontWeight: 600,
-                  letterSpacing: "-0.02em",
-                  fontSize: 18,
+                  maxWidth: 1200,
+                  margin: "0 auto",
+                  padding: "16px 24px",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 16,
                 }}
               >
-                <NavTitle />
-              </div>
-              <Suspense
-                fallback={
-                  <div style={{ display: "flex", gap: 16 }}>
-                    <span>Overview</span>
-                    <span>Transactions</span>
-                  </div>
-                }
-              >
-                <NavLinks />
-              </Suspense>
-            </nav>
-          </header>
-          {children}
+                <div
+                  style={{
+                    fontWeight: 600,
+                    letterSpacing: "-0.02em",
+                    fontSize: 18,
+                  }}
+                >
+                  <NavTitle />
+                </div>
+                <Suspense
+                  fallback={
+                    <div style={{ display: "flex", gap: 16 }}>
+                      <span>Overview</span>
+                      <span>Transactions</span>
+                    </div>
+                  }
+                >
+                  <NavLinks />
+                </Suspense>
+              </nav>
+            </header>
+            <main style={{ flex: 1 }}>{children}</main>
+            <Footer />
+          </div>
           <ServiceWorker />
         </MantineProvider>
       </body>
