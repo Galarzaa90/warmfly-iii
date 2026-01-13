@@ -214,9 +214,16 @@ export default async function TransactionsPage({
 
   const normalizedEntries = entries.map((entry) => {
     const amount = Math.abs(Number.parseFloat(entry.amount || "0"));
+    const foreignAmount = entry.foreignAmount
+      ? Math.abs(Number.parseFloat(entry.foreignAmount))
+      : null;
     return {
       ...entry,
       amountValue: Number.isNaN(amount) ? 0 : amount,
+      foreignAmountValue:
+        foreignAmount === null || Number.isNaN(foreignAmount)
+          ? null
+          : foreignAmount,
     };
   });
 

@@ -24,6 +24,8 @@ export type TransactionRow = {
   amountValue: number;
   currencyCode?: string | null;
   currencySymbol?: string | null;
+  foreignAmountValue?: number | null;
+  foreignCurrencySymbol?: string | null;
   type?: string;
   source?: string | null;
   destination?: string | null;
@@ -107,6 +109,14 @@ function formatAmount(
     return `${currencySymbol}${amount.toFixed(2)}`;
   }
   return amount.toFixed(2);
+}
+
+function formatForeignAmount(
+  amount: number,
+  currencySymbol?: string | null,
+) {
+  const prefix = currencySymbol ?? "";
+  return `${prefix}${amount.toFixed(2)}`;
 }
 
 function TransactionTypeIcon({ type }: { type?: string }) {
@@ -223,7 +233,7 @@ function AccountBadges({
   if (entry.type === "transfer") {
     return (
       <Group gap="xs" align="center" wrap="wrap">
-        <Tooltip label={`Account: ${normalizeAccountName(entry.source)}`} withArrow>
+
           <span style={{ display: "inline-flex" }}>
             <Badge
               size={size}
@@ -233,15 +243,10 @@ function AccountBadges({
             >
               {normalizeAccountName(entry.source)}
             </Badge>
-          </span>
-        </Tooltip>
+        </span>
         <Text size="xs" c="dimmed">
           <TransferArrowIcon size={12} />
         </Text>
-        <Tooltip
-          label={`Account: ${normalizeAccountName(entry.destination)}`}
-          withArrow
-        >
           <span style={{ display: "inline-flex" }}>
             <Badge
               size={size}
@@ -251,8 +256,7 @@ function AccountBadges({
             >
               {normalizeAccountName(entry.destination)}
             </Badge>
-          </span>
-        </Tooltip>
+        </span>
       </Group>
     );
   }
@@ -264,7 +268,7 @@ function AccountBadges({
   );
 
   return (
-    <Tooltip label={`Account: ${accountName}`} withArrow>
+
       <span style={{ display: "inline-flex" }}>
         <Badge
           size={size}
@@ -274,8 +278,7 @@ function AccountBadges({
         >
           {accountName}
         </Badge>
-      </span>
-    </Tooltip>
+    </span>
   );
 }
 
@@ -309,7 +312,8 @@ export default function TransactionsTable({
                     <Text fw={600} size="sm" lineClamp={2}>
                       {entry.title}
                     </Text>
-                  </Group>
+                </Group>
+                <Stack gap={2} align="flex-end">
                   <Text fw={600} size="sm">
                     {formatAmount(
                       entry.amountValue,
@@ -317,7 +321,17 @@ export default function TransactionsTable({
                       entry.currencySymbol,
                     )}
                   </Text>
-                </Group>
+                  {entry.foreignAmountValue !== null &&
+                  entry.foreignAmountValue !== undefined ? (
+                    <Text size="xs" c="dimmed">
+                      {formatForeignAmount(
+                        entry.foreignAmountValue,
+                        entry.foreignCurrencySymbol,
+                      )}
+                    </Text>
+                  ) : null}
+                </Stack>
+              </Group>
                 <Group gap="xs" mt="xs" align="center" wrap="wrap">
                   <Tooltip label={formatFullDate(entry.date)} withArrow>
                     <span style={{ display: "inline-flex" }}>
@@ -360,8 +374,12 @@ export default function TransactionsTable({
                         </span>
                       </Tooltip>
                     ) : null}
-                    {entry.tags?.map((tag) => (
-                      <Tooltip key={tag} label={`Label: ${tag}`} withArrow>
+                    {entry.tags?.map((tag, index) => (
+                      <Tooltip
+                        key={`${entry.id}-tag-${tag}-${index}`}
+                        label={`Label: ${tag}`}
+                        withArrow
+                      >
                         <span style={{ display: "inline-flex" }}>
                           <Badge
                             size="sm"
@@ -436,8 +454,12 @@ export default function TransactionsTable({
                         </span>
                       </Tooltip>
                     ) : null}
-                    {entry.tags?.map((tag) => (
-                      <Tooltip key={tag} label={`Label: ${tag}`} withArrow>
+                    {entry.tags?.map((tag, index) => (
+                      <Tooltip
+                        key={`${entry.id}-tag-${tag}-${index}`}
+                        label={`Label: ${tag}`}
+                        withArrow
+                      >
                         <span style={{ display: "inline-flex" }}>
                           <Badge
                             size="md"
@@ -466,13 +488,24 @@ export default function TransactionsTable({
                   </Tooltip>
                 </TableTd>
                 <TableTd style={{ textAlign: "right" }}>
-                  <Text fw={600} size="sm">
-                    {formatAmount(
-                      entry.amountValue,
-                      entry.currencyCode,
-                      entry.currencySymbol,
-                    )}
-                  </Text>
+                  <Stack gap={2} align="flex-end">
+                    <Text fw={600} size="sm">
+                      {formatAmount(
+                        entry.amountValue,
+                        entry.currencyCode,
+                        entry.currencySymbol,
+                      )}
+                    </Text>
+                    {entry.foreignAmountValue !== null &&
+                    entry.foreignAmountValue !== undefined ? (
+                      <Text size="xs" c="dimmed">
+                        {formatForeignAmount(
+                          entry.foreignAmountValue,
+                          entry.foreignCurrencySymbol,
+                        )}
+                      </Text>
+                    ) : null}
+                  </Stack>
                 </TableTd>
               </TableTr>
             ))}

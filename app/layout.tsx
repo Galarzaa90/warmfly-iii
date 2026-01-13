@@ -2,6 +2,7 @@ import "@mantine/core/styles.css";
 import type { Metadata } from "next";
 import { ColorSchemeScript, MantineProvider, createTheme } from "@mantine/core";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
+import { Suspense } from "react";
 import "./globals.css";
 import ServiceWorker from "./components/service-worker";
 import NavLinks from "./components/nav-links";
@@ -72,7 +73,16 @@ export default function RootLayout({
               >
                 Warmfly III
               </div>
-              <NavLinks />
+              <Suspense
+                fallback={
+                  <div style={{ display: "flex", gap: 16 }}>
+                    <span>Overview</span>
+                    <span>Transactions</span>
+                  </div>
+                }
+              >
+                <NavLinks />
+              </Suspense>
             </nav>
           </header>
           {children}

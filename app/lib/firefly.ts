@@ -1,10 +1,12 @@
 type FireflySplit = {
   amount: string;
+  foreign_amount?: string | null;
   description: string;
   date: string;
   type?: string;
   currency_code?: string | null;
   currency_symbol?: string | null;
+  foreign_currency_symbol?: string | null;
   source_name?: string | null;
   source_id?: string | null;
   destination_name?: string | null;
@@ -107,9 +109,11 @@ export type ExpenseEntry = {
   title: string;
   date: string;
   amount: string;
+  foreignAmount?: string | null;
   type?: string;
   currencyCode?: string | null;
   currencySymbol?: string | null;
+  foreignCurrencySymbol?: string | null;
   source?: string | null;
   sourceId?: string | null;
   destination?: string | null;
@@ -227,9 +231,11 @@ export async function fetchExpenses({
         title: groupTitle || split.description || "Untitled expense",
         date: split.date,
         amount: split.amount,
+        foreignAmount: split.foreign_amount,
         type: split.type,
         currencyCode: split.currency_code,
         currencySymbol: split.currency_symbol,
+        foreignCurrencySymbol: split.foreign_currency_symbol,
         source: split.source_name,
         sourceId: split.source_id,
         destination: split.destination_name,
@@ -270,9 +276,11 @@ export async function searchTransactions({
         title: groupTitle || split.description || "Untitled expense",
         date: split.date,
         amount: split.amount,
+        foreignAmount: split.foreign_amount,
         type: split.type,
         currencyCode: split.currency_code,
         currencySymbol: split.currency_symbol,
+        foreignCurrencySymbol: split.foreign_currency_symbol,
         source: split.source_name,
         sourceId: split.source_id,
         destination: split.destination_name,
