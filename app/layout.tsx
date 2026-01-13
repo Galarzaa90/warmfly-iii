@@ -6,6 +6,7 @@ import { Suspense } from "react";
 import "./globals.css";
 import ServiceWorker from "./components/service-worker";
 import NavLinks from "./components/nav-links";
+import NavTitle from "./components/nav-title";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",
@@ -71,7 +72,7 @@ export default function RootLayout({
                   fontSize: 18,
                 }}
               >
-                Warmfly III
+                <NavTitle />
               </div>
               <Suspense
                 fallback={
