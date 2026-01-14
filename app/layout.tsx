@@ -74,7 +74,9 @@ export default function RootLayout({
                     fontSize: 18,
                   }}
                 >
-                  <NavTitle />
+                  <Suspense fallback={<span>Warmfly III</span>}>
+                    <NavTitle />
+                  </Suspense>
                 </div>
                 <Suspense
                   fallback={
