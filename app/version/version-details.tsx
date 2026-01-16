@@ -11,13 +11,14 @@ import {
   Title,
 } from "@mantine/core";
 import { CopyButton } from "@mantine/core";
+import { useEffect, useMemo, useState } from "react";
 
 type Props = {
   commitHash: string;
   commitShort: string;
   buildVersion: string;
   buildDateLocal: string;
-  uptime: string;
+  serverStartMs: number;
 };
 
 export default function VersionDetails({
@@ -25,9 +26,30 @@ export default function VersionDetails({
   commitShort,
   buildVersion,
   buildDateLocal,
-  uptime,
+  serverStartMs,
 }: Props) {
   const canCopy = commitHash !== "unknown";
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const handle = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(handle);
+  }, []);
+
+  const uptime = useMemo(() => {
+    const totalSeconds = Math.max(0, Math.floor((now - serverStartMs) / 1000));
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    if (hours > 0) {
+      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+    }
+    if (minutes > 0) {
+      return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+    }
+    return `${seconds}s`;
+  }, [now, serverStartMs]);
 
   return (
     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">

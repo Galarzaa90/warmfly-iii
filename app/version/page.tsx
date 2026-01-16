@@ -6,6 +6,9 @@ export const metadata = {
   title: "Version | Warmfly III",
 };
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function cleanValue(value?: string | null) {
   if (!value) return "unknown";
   const trimmed = value.trim();
@@ -24,27 +27,16 @@ function formatCommit(value: string) {
 
 function formatBuildDate(value: string) {
   if (value === "unknown") return value;
-  const parsed = new Date(value);
+  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
+  const normalized = hasTimezone ? value : `${value}Z`;
+  const parsed = new Date(normalized);
   if (Number.isNaN(parsed.getTime())) return value;
   return parsed.toLocaleString();
 }
 
-function formatUptime() {
-  const totalSeconds = Math.max(0, Math.floor(process.uptime()));
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  if (hours > 0) {
-    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
-  }
-  if (minutes > 0) {
-    return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
-  }
-  return `${seconds}s`;
-}
-
 export default function VersionPage() {
+  const serverStartMs = Date.now() - Math.floor(process.uptime() * 1000);
+
   return (
     <Container size={720} py={48}>
       <Stack gap={20}>
@@ -57,7 +49,7 @@ export default function VersionPage() {
           commitShort={formatCommit(commitHash)}
           buildVersion={buildVersion}
           buildDateLocal={formatBuildDate(buildDate)}
-          uptime={formatUptime()}
+          serverStartMs={serverStartMs}
         />
       </Stack>
     </Container>
