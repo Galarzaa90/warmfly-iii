@@ -31,13 +31,13 @@ ENV BUILD_TIME=$BUILD_TIME
 ENV BUILD_DATE=$BUILD_DATE
 ENV BUILD_VERSION=$BUILD_VERSION
 ENV COMMIT_SHA=$COMMIT_SHA
-ENV FIREFLY_III_BASE_URL=
-ENV FIREFLY_III_API_TOKEN=
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY --from=builder /app/.next ./.next
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/next.config.ts ./next.config.ts
+
 EXPOSE 3000
 USER node
 CMD ["npm", "start"]
