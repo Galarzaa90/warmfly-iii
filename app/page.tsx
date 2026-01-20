@@ -1,5 +1,5 @@
 import { Container } from "@mantine/core";
-import OverviewPanel from "./components/overview-panel";
+import OverviewPanel from "./components/OverviewPanel";
 import {
   fetchBudgets,
   fetchExpenses,

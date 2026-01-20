@@ -4,10 +4,10 @@ import { ColorSchemeScript, MantineProvider, createTheme } from "@mantine/core";
 import { JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import { Suspense } from "react";
 import "./globals.css";
-import ServiceWorker from "./components/service-worker";
-import NavLinks from "./components/nav-links";
-import NavTitle from "./components/nav-title";
-import Footer from "./components/footer";
+import ServiceWorker from "./components/ServiceWorker";
+import NavLinks from "./components/NavLinks";
+import NavTitle from "./components/NavTitle";
+import Footer from "./components/Footer";
 
 const spaceGrotesk = Space_Grotesk({
   variable: "--font-space-grotesk",

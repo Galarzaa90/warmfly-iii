@@ -3,11 +3,11 @@
 import { Badge, Card, Group, Paper, Stack, Text } from "@mantine/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import DateRangeFilter from "./date-range-filter";
-import TransactionsFilters from "./transactions-filters";
-import TransactionsPagination from "./transactions-pagination";
-import TransactionsTable, { type TransactionRow } from "./transactions-table";
-import TypeFilter from "./type-filter";
+import DateRangeFilter from "./DateRangeFilter";
+import TransactionsFilters from "./TransactionsFilters";
+import TransactionsPagination from "./TransactionsPagination";
+import TransactionsTable, { type TransactionRow } from "./TransactionsTable";
+import TypeFilter from "./TypeFilter";
 
 type Option = { value: string; label: string };
 

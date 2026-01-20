@@ -1,5 +1,5 @@
 import { Container } from "@mantine/core";
-import TransactionsPanel from "../components/transactions-panel";
+import TransactionsPanel from "../components/TransactionsPanel";
 import {
   fetchAccounts,
   fetchCategories,

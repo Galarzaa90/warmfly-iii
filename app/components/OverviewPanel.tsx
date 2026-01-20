@@ -15,8 +15,8 @@ import {
 } from "@mantine/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import DateRangeFilter from "./date-range-filter";
-import TransactionsTable, { type TransactionRow } from "./transactions-table";
+import DateRangeFilter from "./DateRangeFilter";
+import TransactionsTable, { type TransactionRow } from "./TransactionsTable";
 import type {
   BudgetEntry,
   InsightCategoryEntry,
@@ -439,21 +439,21 @@ export default function OverviewPanel({
                           <Text size="sm" fw={600}>
                             {budget.limit > 0
                               ? `${formatAmount(
-                                  budget.spent,
-                                  budget.currencyCode,
-                                  budget.currencySymbol,
-                                )} of ${formatAmount(
-                                  budget.limit,
-                                  budget.limitCurrencyCode ??
-                                    budget.currencyCode,
-                                  budget.limitCurrencySymbol ??
-                                    budget.currencySymbol,
-                                )}`
+                                budget.spent,
+                                budget.currencyCode,
+                                budget.currencySymbol,
+                              )} of ${formatAmount(
+                                budget.limit,
+                                budget.limitCurrencyCode ??
+                                budget.currencyCode,
+                                budget.limitCurrencySymbol ??
+                                budget.currencySymbol,
+                              )}`
                               : `Spent ${formatAmount(
-                                  budget.spent,
-                                  budget.currencyCode,
-                                  budget.currencySymbol,
-                                )}`}
+                                budget.spent,
+                                budget.currencyCode,
+                                budget.currencySymbol,
+                              )}`}
                           </Text>
                         </Group>
                         {budget.limit > 0 ? (
@@ -466,12 +466,12 @@ export default function OverviewPanel({
                             <Text size="xs" c={isOver ? "red" : "dimmed"} mt={6}>
                               {isOver
                                 ? `Over by ${formatAmount(
-                                    overBy,
-                                    budget.limitCurrencyCode ??
-                                      budget.currencyCode,
-                                    budget.limitCurrencySymbol ??
-                                      budget.currencySymbol,
-                                  )}`
+                                  overBy,
+                                  budget.limitCurrencyCode ??
+                                  budget.currencyCode,
+                                  budget.limitCurrencySymbol ??
+                                  budget.currencySymbol,
+                                )}`
                                 : "Within budget"}
                             </Text>
                           </>

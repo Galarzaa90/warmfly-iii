@@ -4,7 +4,7 @@ import { Loader, Select } from "@mantine/core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 
-type Props = {
+type TypeFilterProps = {
   value: string;
   isLoading?: boolean;
   onNavigate?: (url: string) => void;
@@ -14,7 +14,7 @@ export default function TypeFilter({
   value,
   isLoading = false,
   onNavigate,
-}: Props) {
+}: TypeFilterProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
