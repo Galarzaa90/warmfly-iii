@@ -1,0 +1,13 @@
+# build artifacts
+.next
+apps/*/.next
+out
+build
+coverage
+
+# deps
+node_modules
+
+# misc
+*.log
+.next/cache

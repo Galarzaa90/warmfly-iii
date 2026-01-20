@@ -16,17 +16,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout 🚚
         uses: actions/checkout@v6
 
-      - name: Setup Node
+      - name: Setup Node 🧑🏻‍💻
         uses: actions/setup-node@v6.2.0
         with:
           node-version: 20
           cache: npm
 
-      - name: Install dependencies
+      - name: Install dependencies 📦
         run: npm ci
 
-      - name: Build
+      - name: Build ⚙️
         run: npm run build
