@@ -16,7 +16,16 @@ import {
   Tooltip,
 } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
-import { TransferArrowIcon } from "./TransferArrowIcon";
+import {
+  IconArrowDown,
+  IconArrowNarrowRight,
+  IconArrowUp,
+  IconArrowsRightLeft,
+  IconCoins,
+  IconFolder,
+  IconLabel,
+  IconMinus,
+} from "@tabler/icons-react";
 
 export type TransactionRow = {
   id: string;
@@ -144,106 +153,43 @@ function formatExchangeRateLabel({
 }
 
 function TransactionTypeIcon({ type }: { type?: string }) {
-  const icon = (() => {
-    if (type === "withdrawal" || type === "expense") {
-      return {
-        path: "M12 4v16m0 0l-5-5m5 5l5-5",
-        color: "#f97316",
-        label: "Withdrawal",
-      };
-    }
-    if (type === "deposit" || type === "income") {
-      return {
-        path: "M12 20V4m0 0l-5 5m5-5l5 5",
-        color: "#22c55e",
-        label: "Deposit",
-      };
-    }
-    if (type === "transfer") {
-      return {
-        path: "M4 9h14m0 0l-4-4m4 4l-4 4M20 15H6m0 0l4-4m-4 4l4 4",
-        color: "#38bdf8",
-        label: "Transfer",
-      };
-    }
-    return {
-      path: "M4 12h16",
-      color: "#94a3b8",
-      label: "Transaction",
-    };
-  })();
-
+  if (type === "withdrawal" || type === "expense") {
+    return (
+      <IconArrowDown
+        size={18}
+        color="#f97316"
+        aria-label="Withdrawal"
+        role="img"
+      />
+    );
+  }
+  if (type === "deposit" || type === "income") {
+    return (
+      <IconArrowUp
+        size={18}
+        color="#22c55e"
+        aria-label="Deposit"
+        role="img"
+      />
+    );
+  }
+  if (type === "transfer") {
+    return (
+      <IconArrowsRightLeft
+        size={18}
+        color="#38bdf8"
+        aria-label="Transfer"
+        role="img"
+      />
+    );
+  }
   return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={icon.color}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-label={icon.label}
+    <IconMinus
+      size={18}
+      color="#94a3b8"
+      aria-label="Transaction"
       role="img"
-    >
-      <path d={icon.path} />
-    </svg>
-  );
-}
-
-function CategoryIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M4 4h7l2 3h7v13H4z" />
-    </svg>
-  );
-}
-
-function LabelIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d="M20 10l-8 8-8-8V4h6z" />
-      <circle cx="9" cy="9" r="1.5" />
-    </svg>
-  );
-}
-
-function BudgetIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <rect x="3" y="4" width="18" height="16" rx="2" />
-      <path d="M7 8h10M7 12h6M7 16h8" />
-    </svg>
+    />
   );
 }
 
@@ -269,7 +215,7 @@ function AccountBadges({
           </Badge>
         </span>
         <Text size="xs" c="dimmed">
-          <TransferArrowIcon size={12} />
+          <IconArrowNarrowRight size={12} aria-hidden="true" />
         </Text>
         <span style={{ display: "inline-flex" }}>
           <Badge
@@ -448,7 +394,7 @@ export default function TransactionsTable({
                               variant="light"
                               color="teal"
                               style={{ textTransform: "none" }}
-                              leftSection={<CategoryIcon />}
+                              leftSection={<IconFolder size={14} aria-hidden="true" />}
                             >
                               {entry.category}
                             </Badge>
@@ -463,7 +409,7 @@ export default function TransactionsTable({
                               variant="light"
                               color="cyan"
                               style={{ textTransform: "none" }}
-                              leftSection={<BudgetIcon />}
+                              leftSection={<IconCoins size={14} aria-hidden="true" />}
                             >
                               {entry.budget}
                             </Badge>
@@ -482,7 +428,7 @@ export default function TransactionsTable({
                               variant="light"
                               color="gray"
                               style={{ textTransform: "none" }}
-                              leftSection={<LabelIcon />}
+                              leftSection={<IconLabel size={14} aria-hidden="true" />}
                             >
                               {tag}
                             </Badge>
@@ -528,7 +474,7 @@ export default function TransactionsTable({
                               variant="light"
                               color="teal"
                               style={{ textTransform: "none" }}
-                              leftSection={<CategoryIcon />}
+                              leftSection={<IconFolder size={14} aria-hidden="true" />}
                             >
                               {entry.category}
                             </Badge>
@@ -543,7 +489,7 @@ export default function TransactionsTable({
                               variant="light"
                               color="cyan"
                               style={{ textTransform: "none" }}
-                              leftSection={<BudgetIcon />}
+                              leftSection={<IconCoins size={14} aria-hidden="true" />}
                             >
                               {entry.budget}
                             </Badge>
@@ -562,7 +508,7 @@ export default function TransactionsTable({
                               variant="light"
                               color="gray"
                               style={{ textTransform: "none" }}
-                              leftSection={<LabelIcon />}
+                              leftSection={<IconLabel size={14} aria-hidden="true" />}
                             >
                               {tag}
                             </Badge>
