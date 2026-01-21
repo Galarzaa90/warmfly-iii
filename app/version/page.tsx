@@ -1,6 +1,6 @@
-import { Container, Stack, Text, Title } from "@mantine/core";
+import { Container, Stack, Title } from "@mantine/core";
 import { getBuildInfo } from "../lib/build-info";
-import VersionDetails from "./version-details";
+import VersionDetails from "./VersionDetails";
 
 export const metadata = {
   title: "Version | Warmfly III",
@@ -19,36 +19,17 @@ const buildInfo = getBuildInfo();
 const commitHash = cleanValue(buildInfo.commitHash);
 const buildVersion = cleanValue(buildInfo.buildVersion);
 const buildDate = cleanValue(buildInfo.buildDate);
-
-function formatCommit(value: string) {
-  if (value === "unknown") return value;
-  return value.length > 12 ? value.slice(0, 12) : value;
-}
-
-function formatBuildDate(value: string) {
-  if (value === "unknown") return value;
-  const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(value);
-  const normalized = hasTimezone ? value : `${value}Z`;
-  const parsed = new Date(normalized);
-  if (Number.isNaN(parsed.getTime())) return value;
-  return parsed.toLocaleString();
-}
+const serverStartMs = Date.now() - Math.floor(process.uptime() * 1000);
 
 export default function VersionPage() {
-  const serverStartMs = Date.now() - Math.floor(process.uptime() * 1000);
-
   return (
     <Container size={720} py={48}>
       <Stack gap={20}>
-        <Title order={1}>Version</Title>
-        <Text c="dimmed">
-          Deployment metadata for this instance of Warmfly III.
-        </Text>
+        <Title order={1}>Version Info</Title>
         <VersionDetails
           commitHash={commitHash}
-          commitShort={formatCommit(commitHash)}
           buildVersion={buildVersion}
-          buildDateLocal={formatBuildDate(buildDate)}
+          buildDate={buildDate}
           serverStartMs={serverStartMs}
         />
       </Stack>

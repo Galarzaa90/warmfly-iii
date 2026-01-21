@@ -2,34 +2,46 @@
 
 import {
   Button,
+  Card,
   Code,
+  CopyButton,
   Group,
-  Paper,
   SimpleGrid,
   Stack,
   Text,
   Title,
 } from "@mantine/core";
-import { CopyButton } from "@mantine/core";
 import { useEffect, useMemo, useState } from "react";
 
-type Props = {
+type VersionDetailsProps = {
   commitHash: string;
-  commitShort: string;
   buildVersion: string;
-  buildDateLocal: string;
+  buildDate: string;
   serverStartMs: number;
 };
 
+function formatCommit(value: string) {
+  if (value === "unknown") return value;
+  return value.length > 12 ? value.slice(0, 12) : value;
+}
+
 export default function VersionDetails({
   commitHash,
-  commitShort,
   buildVersion,
-  buildDateLocal,
+  buildDate,
   serverStartMs,
-}: Props) {
+}: VersionDetailsProps) {
   const canCopy = commitHash !== "unknown";
   const [now, setNow] = useState(() => Date.now());
+  const commitShort = formatCommit(commitHash);
+  const buildDateLocal = useMemo(() => {
+    if (buildDate === "unknown") return buildDate;
+    const hasTimezone = /[zZ]|[+-]\d{2}:?\d{2}$/.test(buildDate);
+    const normalized = hasTimezone ? buildDate : `${buildDate}Z`;
+    const parsed = new Date(normalized);
+    if (Number.isNaN(parsed.getTime())) return buildDate;
+    return parsed.toLocaleString();
+  }, [buildDate]);
 
   useEffect(() => {
     const handle = setInterval(() => setNow(Date.now()), 1000);
@@ -53,7 +65,7 @@ export default function VersionDetails({
 
   return (
     <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
-      <Paper withBorder radius="md" p="lg" style={{ borderColor: "var(--app-border)" }}>
+      <Card withBorder radius="md" p="lg" style={{ borderColor: "var(--app-border)" }}>
         <Stack gap={8}>
           <Text size="sm" c="dimmed">
             Commit hash
@@ -74,31 +86,31 @@ export default function VersionDetails({
             </CopyButton>
           </Group>
         </Stack>
-      </Paper>
-      <Paper withBorder radius="md" p="lg" style={{ borderColor: "var(--app-border)" }}>
+      </Card>
+      <Card withBorder radius="md" p="lg" style={{ borderColor: "var(--app-border)" }}>
         <Stack gap={8}>
           <Text size="sm" c="dimmed">
             Build version
           </Text>
-          <Code>{buildVersion}</Code>
+          <Title order={4}>{buildVersion}</Title>
         </Stack>
-      </Paper>
-      <Paper withBorder radius="md" p="lg" style={{ borderColor: "var(--app-border)" }}>
+      </Card>
+      <Card withBorder radius="md" p="lg" style={{ borderColor: "var(--app-border)" }}>
         <Stack gap={8}>
           <Text size="sm" c="dimmed">
             Build date
           </Text>
-          <Code>{buildDateLocal}</Code>
+          <Title order={4}>{buildDateLocal}</Title>
         </Stack>
-      </Paper>
-      <Paper withBorder radius="md" p="lg" style={{ borderColor: "var(--app-border)" }}>
+      </Card>
+      <Card withBorder radius="md" p="lg" style={{ borderColor: "var(--app-border)" }}>
         <Stack gap={8}>
           <Text size="sm" c="dimmed">
             Uptime
           </Text>
           <Title order={4}>{uptime}</Title>
         </Stack>
-      </Paper>
+      </Card>
     </SimpleGrid>
   );
 }
