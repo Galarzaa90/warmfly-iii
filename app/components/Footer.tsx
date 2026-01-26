@@ -1,23 +1,13 @@
+import { ActionIcon, Box, Container, Group, Text } from "@mantine/core";
 import {
   IconBrandGithub,
   IconBrandGitlab,
   IconWorld,
 } from "@tabler/icons-react";
 
-const iconStyle = {
-  display: "inline-flex",
-  alignItems: "center",
-  color: "inherit",
-};
-
-const linkStyle = {
-  ...iconStyle,
-  textDecoration: "none",
-};
-
 export default function Footer() {
-  return (
-    <footer
+  return <Box
+    component="footer"
       style={{
         borderTop: "1px solid var(--app-border)",
         background: "rgba(6, 8, 15, 0.6)",
@@ -25,54 +15,55 @@ export default function Footer() {
         marginTop: 40,
       }}
     >
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: "0 auto",
-          padding: "16px 24px",
-          display: "flex",
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 16,
-          color: "var(--app-text-muted, #aab3c1)",
-          fontSize: 14,
-        }}
+    <Container
+      size={1200}
+      px={24}
+      py={16}
       >
-        <div>© 2026 Allan Galarza</div>
-        <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
-          <a
-            href="https://github.com/galarzaa90"
+      <Group justify="space-between" gap={16} wrap="wrap">
+        <Text size="sm">© {new Date().getFullYear()} Allan Galarza</Text>
+        <Group gap={14}>
+          <ActionIcon
+            component="a"
+            href="https://github.com/Galarzaa90"
             target="_blank"
             rel="noreferrer"
-            style={linkStyle}
+            variant="subtle"
+            size="sm"
+            style={{ color: "inherit" }}
             aria-label="GitHub"
             title="GitHub"
           >
             <IconBrandGithub size={18} aria-hidden="true" />
-          </a>
-          <a
-            href="https://gitlab.com/galarzaa90"
+          </ActionIcon>
+          <ActionIcon
+            component="a"
+            href="https://gitlab.com/Galarzaa90"
             target="_blank"
             rel="noreferrer"
-            style={linkStyle}
+            variant="subtle"
+            size="sm"
+            style={{ color: "inherit" }}
             aria-label="GitLab"
             title="GitLab"
           >
             <IconBrandGitlab size={18} aria-hidden="true" />
-          </a>
-          <a
+          </ActionIcon>
+          <ActionIcon
+            component="a"
             href="https://galarzaa.com"
             target="_blank"
             rel="noreferrer"
-            style={linkStyle}
+            variant="subtle"
+            size="sm"
+            style={{ color: "inherit" }}
             aria-label="galarzaa.com"
             title="galarzaa.com"
           >
             <IconWorld size={18} aria-hidden="true" />
-          </a>
-        </div>
-      </div>
-    </footer>
-  );
+          </ActionIcon>
+        </Group>
+      </Group>
+    </Container>
+  </Box>
 }
