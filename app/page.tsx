@@ -1,15 +1,17 @@
 import { Container } from "@mantine/core";
 import OverviewPanel from "./components/OverviewPanel";
+import type { TransactionRow } from "./components/TransactionsTable";
 import {
   fetchBudgets,
-  fetchExpenses,
+  fetchTransactions,
   fetchInsightExpenseCategories,
   fetchInsightExpenseNoCategory,
   fetchInsightTotals,
-  type BudgetEntry,
-  type ExpenseEntry,
-  type InsightCategoryEntry,
+  type BudgetRead,
+  type InsightGroupEntry,
   type InsightTotalEntry,
+  type TransactionArray,
+  type TransactionTypeFilter,
 } from "./lib/firefly";
 
 const DAYS_30 = 30;
@@ -23,6 +25,21 @@ const CATEGORY_COLORS = [
   "#f43f5e",
   "#eab308",
 ];
+const TRANSACTION_TYPE_FILTERS = new Set<TransactionTypeFilter>([
+  "all",
+  "withdrawal",
+  "withdrawals",
+  "expense",
+  "deposit",
+  "deposits",
+  "income",
+  "transfer",
+  "transfers",
+  "opening_balance",
+  "reconciliation",
+  "special",
+  "specials",
+]);
 
 function formatDateOnly(date: Date) {
   return date.toISOString().slice(0, 10);
@@ -40,6 +57,41 @@ function startOfMonth(date: Date) {
 
 function endOfMonth(date: Date) {
   return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function parseDifferenceAmount(value?: string | null) {
+  const amount = Math.abs(Number.parseFloat(value ?? "0"));
+  return Number.isNaN(amount) ? 0 : amount;
+}
+
+function buildTransactionRows(response: TransactionArray): TransactionRow[] {
+  return (
+    response.data?.flatMap((item) => {
+      const groupTitle = item.attributes.group_title;
+      return item.attributes.transactions.map((split, index) => {
+        const amountValue = parseDifferenceAmount(split.amount);
+        const foreignAmountValue = split.foreign_amount
+          ? parseDifferenceAmount(split.foreign_amount)
+          : null;
+        return {
+          id: `${item.id}-${index}`,
+          title: groupTitle || split.description || "Untitled expense",
+          date: split.date,
+          amountValue,
+          currencyCode: split.currency_code,
+          currencySymbol: split.currency_symbol,
+          foreignAmountValue,
+          foreignCurrencySymbol: split.foreign_currency_symbol,
+          type: split.type,
+          source: split.source_name,
+          destination: split.destination_name,
+          category: split.category_name,
+          budget: split.budget_name,
+          tags: split.tags,
+        };
+      });
+    }) ?? []
+  );
 }
 
 export default async function Home({
@@ -60,6 +112,11 @@ export default async function Home({
   const endDate = new Date();
   const resolvedSearchParams = await Promise.resolve(searchParams);
   const requestedType = resolvedSearchParams?.type;
+  const requestedTypeFilter = TRANSACTION_TYPE_FILTERS.has(
+    requestedType as TransactionTypeFilter,
+  )
+    ? (requestedType as TransactionTypeFilter)
+    : undefined;
   const preset =
     resolvedSearchParams?.preset === "last-30-days" ||
     resolvedSearchParams?.preset === "last-90-days" ||
@@ -92,13 +149,13 @@ export default async function Home({
     rangeEndDate = endOfMonth(endDate);
   }
 
-  let entries: ExpenseEntry[] = [];
-  let budgets: BudgetEntry[] = [];
+  let entries: TransactionRow[] = [];
+  let budgets: BudgetRead[] = [];
   let expenseTotals: InsightTotalEntry[] = [];
   let incomeTotals: InsightTotalEntry[] = [];
   let transferTotals: InsightTotalEntry[] = [];
-  let insightCategories: InsightCategoryEntry[] = [];
-  let insightNoCategory: InsightCategoryEntry[] = [];
+  let insightCategories: InsightGroupEntry[] = [];
+  let insightNoCategory: InsightTotalEntry[] = [];
   let errorMessage: string | null = null;
 
   try {
@@ -111,11 +168,11 @@ export default async function Home({
       categoryResponse,
       noCategoryResponse,
     ] = await Promise.all([
-      fetchExpenses({
+      fetchTransactions({
         start: formatDateOnly(startDate),
         end: formatDateOnly(rangeEndDate),
         limit: 20,
-        type: requestedType,
+        type: requestedTypeFilter,
       }),
       fetchBudgets({
         start: formatDateOnly(startDate),
@@ -146,8 +203,8 @@ export default async function Home({
       }),
     ]);
 
-    entries = transactionsResponse.entries;
-    budgets = budgetsResponse;
+    entries = buildTransactionRows(transactionsResponse);
+    budgets = budgetsResponse.data ?? [];
     expenseTotals = expenseTotalsResponse;
     incomeTotals = incomeTotalsResponse;
     transferTotals = transferTotalsResponse;
@@ -158,52 +215,40 @@ export default async function Home({
       error instanceof Error ? error.message : "Unable to load expenses.";
   }
 
-  const normalizedEntries = entries.map((entry) => {
-    const amount = Math.abs(Number.parseFloat(entry.amount || "0"));
-    const foreignAmount = entry.foreignAmount
-      ? Math.abs(Number.parseFloat(entry.foreignAmount))
-      : null;
-    return {
-      ...entry,
-      amountValue: Number.isNaN(amount) ? 0 : amount,
-      foreignAmountValue:
-        foreignAmount === null || Number.isNaN(foreignAmount)
-          ? null
-          : foreignAmount,
-    };
-  });
-
   const primaryCurrency =
-    expenseTotals[0]?.currencyCode ?? insightCategories[0]?.currencyCode ?? null;
+    expenseTotals[0]?.currency_code ?? insightCategories[0]?.currency_code ?? null;
 
   const sortedExpenseTotals = [...expenseTotals].sort(
-    (a, b) => b.amount - a.amount,
+    (a, b) =>
+      parseDifferenceAmount(b.difference) - parseDifferenceAmount(a.difference),
   );
   const sortedIncomeTotals = [...incomeTotals].sort(
-    (a, b) => b.amount - a.amount,
+    (a, b) =>
+      parseDifferenceAmount(b.difference) - parseDifferenceAmount(a.difference),
   );
   const sortedTransferTotals = [...transferTotals].sort(
-    (a, b) => b.amount - a.amount,
+    (a, b) =>
+      parseDifferenceAmount(b.difference) - parseDifferenceAmount(a.difference),
   );
 
   const byCategory = new Map<string, number>();
-  const categorySource = insightCategories.filter(
-    (entry) => (primaryCurrency ? entry.currencyCode === primaryCurrency : true),
+  const categorySource = insightCategories.filter((entry) =>
+    primaryCurrency ? entry.currency_code === primaryCurrency : true,
   );
 
   categorySource.forEach((entry) => {
-    byCategory.set(entry.name, (byCategory.get(entry.name) ?? 0) + entry.amount);
+    const name = entry.name ?? "Uncategorized";
+    const amount = parseDifferenceAmount(entry.difference);
+    byCategory.set(name, (byCategory.get(name) ?? 0) + amount);
   });
 
   insightNoCategory
     .filter((entry) =>
-      primaryCurrency ? entry.currencyCode === primaryCurrency : true,
+      primaryCurrency ? entry.currency_code === primaryCurrency : true,
     )
     .forEach((entry) => {
-      byCategory.set(
-        entry.name,
-        (byCategory.get(entry.name) ?? 0) + entry.amount,
-      );
+      const amount = parseDifferenceAmount(entry.difference);
+      byCategory.set("Uncategorized", (byCategory.get("Uncategorized") ?? 0) + amount);
     });
 
   const categoryEntries = Array.from(byCategory.entries()).sort(
@@ -234,19 +279,33 @@ export default async function Home({
   );
   const budgetsWithLimits = budgets
     .map((budget) => {
-      const resolvedLimit = budget.autoLimit ?? 0;
+      const spentEntry = budget.attributes.spent?.[0];
+      const spentValue = parseDifferenceAmount(spentEntry?.sum ?? "0");
+      const autoLimitValue = parseDifferenceAmount(
+        budget.attributes.auto_budget_amount ?? "0",
+      );
+      const resolvedLimit = autoLimitValue ?? 0;
+      const currencyCode =
+        spentEntry?.currency_code ?? budget.attributes.currency_code ?? null;
+      const currencySymbol =
+        spentEntry?.currency_symbol ?? budget.attributes.currency_symbol ?? null;
       return {
-        ...budget,
+        id: budget.id,
+        name: budget.attributes.name,
+        spent: spentValue,
+        currencyCode,
+        currencySymbol,
+        autoLimit: autoLimitValue,
         limit: resolvedLimit,
-        limitCurrencyCode: budget.currencyCode,
-        limitCurrencySymbol: budget.currencySymbol,
-        usage: resolvedLimit ? budget.spent / resolvedLimit : 0,
+        limitCurrencyCode: currencyCode,
+        limitCurrencySymbol: currencySymbol,
+        usage: resolvedLimit ? spentValue / resolvedLimit : 0,
       };
     })
     .sort((a, b) => b.spent - a.spent);
 
-  const recentExpenses = [...normalizedEntries].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  const recentExpenses = [...entries].sort(
+    (a, b) => b.date.getTime() - a.date.getTime(),
   );
 
   const dateRangeValue =

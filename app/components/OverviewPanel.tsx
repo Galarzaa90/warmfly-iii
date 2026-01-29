@@ -17,13 +17,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import DateRangeFilter from "./DateRangeFilter";
 import TransactionsTable, { type TransactionRow } from "./TransactionsTable";
-import type {
-  BudgetEntry,
-  InsightCategoryEntry,
-  InsightTotalEntry,
-} from "../lib/firefly";
+import type { InsightTotalEntry } from "../lib/firefly";
 
-type BudgetWithLimit = BudgetEntry & {
+type BudgetWithLimit = {
+  id: string;
+  name: string;
+  spent: number;
+  currencyCode?: string | null;
+  currencySymbol?: string | null;
+  autoLimit: number;
   limit: number;
   limitCurrencyCode?: string | null;
   limitCurrencySymbol?: string | null;
@@ -62,6 +64,11 @@ function formatAmount(
     return `${currencySymbol}${amount.toFixed(2)}`;
   }
   return amount.toFixed(2);
+}
+
+function parseDifferenceAmount(value?: string | null) {
+  const amount = Math.abs(Number.parseFloat(value ?? "0"));
+  return Number.isNaN(amount) ? 0 : amount;
 }
 
 export default function OverviewPanel({
@@ -162,14 +169,14 @@ export default function OverviewPanel({
               <Skeleton height={24} width="70%" />
               <Skeleton height={10} width="60%" />
             </Stack>
-          ) : sortedIncomeTotals.length <= 1 ? (
-            <Text fw={600} size="xl">
-              {formatAmount(
-                sortedIncomeTotals[0]?.amount ?? 0,
-                sortedIncomeTotals[0]?.currencyCode ?? primaryCurrency,
-              )}
-            </Text>
-          ) : (
+      ) : sortedIncomeTotals.length <= 1 ? (
+        <Text fw={600} size="xl">
+          {formatAmount(
+            parseDifferenceAmount(sortedIncomeTotals[0]?.difference),
+            sortedIncomeTotals[0]?.currency_code ?? primaryCurrency,
+          )}
+        </Text>
+      ) : (
             <Stack gap={4} mt="xs">
               {sortedIncomeTotals.map((entry, index) => (
                 <Group
@@ -177,10 +184,13 @@ export default function OverviewPanel({
                   justify="space-between"
                 >
                   <Text size="sm" c="dimmed">
-                    {entry.currencyCode ?? "Unknown"}
+                    {entry.currency_code ?? "Unknown"}
                   </Text>
                   <Text size="sm" fw={600}>
-                    {formatAmount(entry.amount, entry.currencyCode)}
+                    {formatAmount(
+                      parseDifferenceAmount(entry.difference),
+                      entry.currency_code ?? primaryCurrency,
+                    )}
                   </Text>
                 </Group>
               ))}
@@ -211,14 +221,14 @@ export default function OverviewPanel({
               <Skeleton height={24} width="70%" />
               <Skeleton height={10} width="60%" />
             </Stack>
-          ) : sortedExpenseTotals.length <= 1 ? (
-            <Text fw={600} size="xl">
-              {formatAmount(
-                sortedExpenseTotals[0]?.amount ?? 0,
-                sortedExpenseTotals[0]?.currencyCode ?? primaryCurrency,
-              )}
-            </Text>
-          ) : (
+      ) : sortedExpenseTotals.length <= 1 ? (
+        <Text fw={600} size="xl">
+          {formatAmount(
+            parseDifferenceAmount(sortedExpenseTotals[0]?.difference),
+            sortedExpenseTotals[0]?.currency_code ?? primaryCurrency,
+          )}
+        </Text>
+      ) : (
             <Stack gap={4} mt="xs">
               {sortedExpenseTotals.map((entry, index) => (
                 <Group
@@ -226,10 +236,13 @@ export default function OverviewPanel({
                   justify="space-between"
                 >
                   <Text size="sm" c="dimmed">
-                    {entry.currencyCode ?? "Unknown"}
+                    {entry.currency_code ?? "Unknown"}
                   </Text>
                   <Text size="sm" fw={600}>
-                    {formatAmount(entry.amount, entry.currencyCode)}
+                    {formatAmount(
+                      parseDifferenceAmount(entry.difference),
+                      entry.currency_code ?? primaryCurrency,
+                    )}
                   </Text>
                 </Group>
               ))}
@@ -260,14 +273,14 @@ export default function OverviewPanel({
               <Skeleton height={24} width="70%" />
               <Skeleton height={10} width="60%" />
             </Stack>
-          ) : sortedTransferTotals.length <= 1 ? (
-            <Text fw={600} size="xl">
-              {formatAmount(
-                sortedTransferTotals[0]?.amount ?? 0,
-                sortedTransferTotals[0]?.currencyCode ?? primaryCurrency,
-              )}
-            </Text>
-          ) : (
+      ) : sortedTransferTotals.length <= 1 ? (
+        <Text fw={600} size="xl">
+          {formatAmount(
+            parseDifferenceAmount(sortedTransferTotals[0]?.difference),
+            sortedTransferTotals[0]?.currency_code ?? primaryCurrency,
+          )}
+        </Text>
+      ) : (
             <Stack gap={4} mt="xs">
               {sortedTransferTotals.map((entry, index) => (
                 <Group
@@ -275,10 +288,13 @@ export default function OverviewPanel({
                   justify="space-between"
                 >
                   <Text size="sm" c="dimmed">
-                    {entry.currencyCode ?? "Unknown"}
+                    {entry.currency_code ?? "Unknown"}
                   </Text>
                   <Text size="sm" fw={600}>
-                    {formatAmount(entry.amount, entry.currencyCode)}
+                    {formatAmount(
+                      parseDifferenceAmount(entry.difference),
+                      entry.currency_code ?? primaryCurrency,
+                    )}
                   </Text>
                 </Group>
               ))}

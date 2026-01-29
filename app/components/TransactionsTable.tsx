@@ -30,7 +30,7 @@ import {
 export type TransactionRow = {
   id: string;
   title: string;
-  date: string;
+  date: Date;
   amountValue: number;
   currencyCode?: string | null;
   currencySymbol?: string | null;
@@ -81,18 +81,18 @@ function normalizeAccountName(name?: string | null) {
   return name?.trim() ? name.trim() : "Unknown";
 }
 
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+function formatDate(value: Date) {
+  const date = value;
+  if (Number.isNaN(date.getTime())) return value.toString();
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "2-digit",
   }).format(date);
 }
 
-function formatFullDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
+function formatFullDate(value: Date) {
+  const date = value;
+  if (Number.isNaN(date.getTime())) return value.toString();
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "full",
     timeStyle: "medium",

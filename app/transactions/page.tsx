@@ -1,14 +1,15 @@
 import { Container } from "@mantine/core";
 import TransactionsPanel from "../components/TransactionsPanel";
+import type { TransactionRow } from "../components/TransactionsTable";
 import {
   fetchAccounts,
   fetchCategories,
   searchTransactions,
   fetchTags,
-  type AccountEntry,
-  type CategoryEntry,
-  type ExpenseEntry,
-  type TagEntry,
+  type AccountRead,
+  type CategoryRead,
+  type TagRead,
+  type TransactionArray,
 } from "../lib/firefly";
 
 const DAYS_30 = 30;
@@ -42,6 +43,41 @@ function formatSearchValue(value: string) {
 
 function buildToken(key: string, value: string) {
   return `${key}:${formatSearchValue(value)}`;
+}
+
+function parseDifferenceAmount(value?: string | null) {
+  const amount = Math.abs(Number.parseFloat(value ?? "0"));
+  return Number.isNaN(amount) ? 0 : amount;
+}
+
+function buildTransactionRows(response: TransactionArray): TransactionRow[] {
+  return (
+    response.data?.flatMap((item) => {
+      const groupTitle = item.attributes.group_title;
+      return item.attributes.transactions.map((split, index) => {
+        const amountValue = parseDifferenceAmount(split.amount);
+        const foreignAmountValue = split.foreign_amount
+          ? parseDifferenceAmount(split.foreign_amount)
+          : null;
+        return {
+          id: `${item.id}-${index}`,
+          title: groupTitle || split.description || "Untitled expense",
+          date: split.date,
+          amountValue,
+          currencyCode: split.currency_code,
+          currencySymbol: split.currency_symbol,
+          foreignAmountValue,
+          foreignCurrencySymbol: split.foreign_currency_symbol,
+          type: split.type,
+          source: split.source_name,
+          destination: split.destination_name,
+          category: split.category_name,
+          budget: split.budget_name,
+          tags: split.tags,
+        };
+      });
+    }) ?? []
+  );
 }
 
 export default async function TransactionsPage({
@@ -114,12 +150,12 @@ export default async function TransactionsPage({
     presetMonth = formatDateOnly(startDate).slice(0, 7);
   }
 
-  let entries: ExpenseEntry[] = [];
+  let entries: TransactionRow[] = [];
   let totalPages = 1;
   let totalMatches: number | null = null;
-  let accounts: AccountEntry[] = [];
-  let categories: CategoryEntry[] = [];
-  let labels: TagEntry[] = [];
+  let accounts: AccountRead[] = [];
+  let categories: CategoryRead[] = [];
+  let labels: TagRead[] = [];
   let errorMessage: string | null = null;
 
   try {
@@ -128,12 +164,12 @@ export default async function TransactionsPage({
       fetchCategories(),
       fetchTags(),
     ]);
-    accounts = accountsResponse;
-    categories = categoriesResponse;
-    labels = tagsResponse;
+    accounts = accountsResponse.data ?? [];
+    categories = categoriesResponse.data ?? [];
+    labels = tagsResponse.data ?? [];
 
     const categoryNameById = new Map(
-      categoriesResponse.map((category) => [category.id, category.name]),
+      categories.map((category) => [category.id, category.attributes.name]),
     );
     const selectedCategoryName = categorySelection
       ? categoryNameById.get(categorySelection) ?? null
@@ -171,20 +207,20 @@ export default async function TransactionsPage({
       ),
     );
 
-    const entryMap = new Map<string, ExpenseEntry>();
+    const entryMap = new Map<string, TransactionRow>();
     searchResponses.forEach((response) => {
-      response.entries.forEach((entry) => {
+      buildTransactionRows(response).forEach((entry) => {
         entryMap.set(entry.id, entry);
       });
     });
 
     entries = Array.from(entryMap.values());
     totalPages = searchResponses.reduce((max, response) => {
-      const candidate = response.pagination?.total_pages ?? 1;
+      const candidate = response.meta?.pagination?.total_pages ?? 1;
       return candidate > max ? candidate : max;
     }, 1);
     totalMatches = searchResponses.reduce((max, response) => {
-      const candidate = response.pagination?.total ?? 0;
+      const candidate = response.meta?.pagination?.total ?? 0;
       return candidate > max ? candidate : max;
     }, 0);
   } catch (error) {
@@ -192,23 +228,8 @@ export default async function TransactionsPage({
       error instanceof Error ? error.message : "Unable to load transactions.";
   }
 
-  const normalizedEntries = entries.map((entry) => {
-    const amount = Math.abs(Number.parseFloat(entry.amount || "0"));
-    const foreignAmount = entry.foreignAmount
-      ? Math.abs(Number.parseFloat(entry.foreignAmount))
-      : null;
-    return {
-      ...entry,
-      amountValue: Number.isNaN(amount) ? 0 : amount,
-      foreignAmountValue:
-        foreignAmount === null || Number.isNaN(foreignAmount)
-          ? null
-          : foreignAmount,
-    };
-  });
-
-  const recentEntries = [...normalizedEntries].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+  const recentEntries = [...entries].sort(
+    (a, b) => b.date.getTime() - a.date.getTime(),
   );
 
   const dateRangeValue =
@@ -228,20 +249,20 @@ export default async function TransactionsPage({
         basePath="/transactions"
         accountOptions={accounts
           .filter((account) => {
-            const type = (account.type ?? "").toLowerCase();
+            const type = (account.attributes.type ?? "").toLowerCase();
             return type !== "initial-balance" && type !== "reconciliation";
           })
           .map((account) => ({
             value: account.id,
-            label: account.name,
+            label: account.attributes.name,
           }))}
         categoryOptions={categories.map((category) => ({
           value: category.id,
-          label: category.name,
+          label: category.attributes.name,
         }))}
         labelOptions={labels.map((tag) => ({
-          value: tag.name,
-          label: tag.name,
+          value: tag.attributes.tag,
+          label: tag.attributes.tag,
         }))}
         accountValue={accountFilter || null}
         categoryValue={categorySelection || null}
