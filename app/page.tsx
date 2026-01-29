@@ -1,6 +1,5 @@
 import { Container } from "@mantine/core";
 import OverviewPanel from "./components/OverviewPanel";
-import type { TransactionRow } from "./components/TransactionsTable";
 import {
   fetchBudgets,
   fetchTransactions,
@@ -11,6 +10,7 @@ import {
   type InsightGroupEntry,
   type InsightTotalEntry,
   type TransactionArray,
+  type TransactionSplit,
   type TransactionTypeFilter,
 } from "./lib/firefly";
 
@@ -64,34 +64,8 @@ function parseDifferenceAmount(value?: string | null) {
   return Number.isNaN(amount) ? 0 : amount;
 }
 
-function buildTransactionRows(response: TransactionArray): TransactionRow[] {
-  return (
-    response.data?.flatMap((item) => {
-      const groupTitle = item.attributes.group_title;
-      return item.attributes.transactions.map((split, index) => {
-        const amountValue = parseDifferenceAmount(split.amount);
-        const foreignAmountValue = split.foreign_amount
-          ? parseDifferenceAmount(split.foreign_amount)
-          : null;
-        return {
-          id: `${item.id}-${index}`,
-          title: groupTitle || split.description || "Untitled expense",
-          date: split.date,
-          amountValue,
-          currencyCode: split.currency_code,
-          currencySymbol: split.currency_symbol,
-          foreignAmountValue,
-          foreignCurrencySymbol: split.foreign_currency_symbol,
-          type: split.type,
-          source: split.source_name,
-          destination: split.destination_name,
-          category: split.category_name,
-          budget: split.budget_name,
-          tags: split.tags,
-        };
-      });
-    }) ?? []
-  );
+function buildTransactionSplits(response: TransactionArray): TransactionSplit[] {
+  return response.data?.flatMap((item) => item.attributes.transactions) ?? [];
 }
 
 export default async function Home({
@@ -149,7 +123,7 @@ export default async function Home({
     rangeEndDate = endOfMonth(endDate);
   }
 
-  let entries: TransactionRow[] = [];
+  let entries: TransactionSplit[] = [];
   let budgets: BudgetRead[] = [];
   let expenseTotals: InsightTotalEntry[] = [];
   let incomeTotals: InsightTotalEntry[] = [];
@@ -203,7 +177,7 @@ export default async function Home({
       }),
     ]);
 
-    entries = buildTransactionRows(transactionsResponse);
+    entries = buildTransactionSplits(transactionsResponse);
     budgets = budgetsResponse.data ?? [];
     expenseTotals = expenseTotalsResponse;
     incomeTotals = incomeTotalsResponse;

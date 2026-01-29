@@ -16,8 +16,8 @@ import {
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import DateRangeFilter from "./DateRangeFilter";
-import TransactionsTable, { type TransactionRow } from "./TransactionsTable";
-import type { InsightTotalEntry } from "../lib/firefly";
+import TransactionsTable from "./TransactionsTable";
+import type { InsightTotalEntry, TransactionSplit } from "../lib/firefly";
 
 type BudgetWithLimit = {
   id: string;
@@ -36,7 +36,7 @@ type Props = {
   dateRangeValue: string;
   dateRangeLabel: string;
   basePath?: string;
-  recentExpenses: TransactionRow[];
+  recentExpenses: TransactionSplit[];
   sortedIncomeTotals: InsightTotalEntry[];
   sortedExpenseTotals: InsightTotalEntry[];
   sortedTransferTotals: InsightTotalEntry[];

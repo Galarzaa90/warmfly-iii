@@ -26,26 +26,10 @@ import {
   IconLabel,
   IconMinus,
 } from "@tabler/icons-react";
-
-export type TransactionRow = {
-  id: string;
-  title: string;
-  date: Date;
-  amountValue: number;
-  currencyCode?: string | null;
-  currencySymbol?: string | null;
-  foreignAmountValue?: number | null;
-  foreignCurrencySymbol?: string | null;
-  type?: string;
-  source?: string | null;
-  destination?: string | null;
-  category?: string | null;
-  budget?: string | null;
-  tags?: string[] | null;
-};
+import type { TransactionSplit } from "../lib/firefly";
 
 type Props = {
-  entries: TransactionRow[];
+  entries: TransactionSplit[];
   maxRows?: number;
   pagination?: React.ReactNode;
   isLoading?: boolean;
@@ -102,6 +86,17 @@ function formatFullDate(value: Date) {
 function formatTransactionType(type?: string) {
   if (!type) return "Transaction";
   return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+function parseAmount(value?: string | null) {
+  const amount = Math.abs(Number.parseFloat(value ?? "0"));
+  return Number.isNaN(amount) ? 0 : amount;
+}
+
+function transactionKey(entry: TransactionSplit, index: number) {
+  const dateKey =
+    entry.date instanceof Date ? entry.date.toISOString() : String(entry.date);
+  return `${dateKey}-${entry.amount ?? ""}-${entry.description ?? ""}-${index}`;
 }
 
 function formatAmount(
@@ -197,7 +192,7 @@ function AccountBadges({
   entry,
   size = "lg",
 }: {
-  entry: TransactionRow;
+  entry: TransactionSplit;
   size?: "sm" | "md" | "lg";
 }) {
   if (entry.type === "transfer") {
@@ -208,10 +203,10 @@ function AccountBadges({
           <Badge
             size={size}
             variant="light"
-            color={accountColor(normalizeAccountName(entry.source))}
+            color={accountColor(normalizeAccountName(entry.source_name))}
             style={{ textTransform: "none" }}
           >
-            {normalizeAccountName(entry.source)}
+            {normalizeAccountName(entry.source_name)}
           </Badge>
         </span>
         <Text size="xs" c="dimmed">
@@ -221,10 +216,10 @@ function AccountBadges({
           <Badge
             size={size}
             variant="light"
-            color={accountColor(normalizeAccountName(entry.destination))}
+            color={accountColor(normalizeAccountName(entry.destination_name))}
             style={{ textTransform: "none" }}
           >
-            {normalizeAccountName(entry.destination)}
+            {normalizeAccountName(entry.destination_name)}
           </Badge>
         </span>
       </Group>
@@ -233,8 +228,8 @@ function AccountBadges({
 
   const accountName = normalizeAccountName(
     entry.type === "deposit" || entry.type === "income"
-      ? entry.destination
-      : entry.source,
+      ? entry.destination_name
+      : entry.source_name,
   );
 
   return (
@@ -323,14 +318,19 @@ export default function TransactionsTable({
       {hasRows ? (
         isMobile ? (
           <Stack gap="sm">
-            {rows.map((entry) => {
+            {rows.map((entry, index) => {
+              const rowKey = transactionKey(entry, index);
+              const amountValue = parseAmount(entry.amount);
+              const foreignAmountValue = entry.foreign_amount
+                ? parseAmount(entry.foreign_amount)
+                : null;
               const hasMetaBadges =
-                Boolean(entry.category) ||
-                Boolean(entry.budget) ||
+                Boolean(entry.category_name) ||
+                Boolean(entry.budget_name) ||
                 Boolean(entry.tags?.length);
 
               return (
-                <Paper key={entry.id} withBorder radius="md" p="md">
+                <Paper key={rowKey} withBorder radius="md" p="md">
                   <Group justify="space-between" align="flex-start" wrap="nowrap">
                     <Group gap="xs" align="center" wrap="nowrap">
                       <Tooltip label={formatTransactionType(entry.type)} withArrow>
@@ -339,34 +339,34 @@ export default function TransactionsTable({
                         </span>
                       </Tooltip>
                       <Text fw={600} size="sm" lineClamp={2}>
-                        {entry.title}
+                        {entry.description || "Untitled expense"}
                       </Text>
                     </Group>
                     <Stack gap={2} align="flex-end">
                       <Text fw={600} size="sm">
                         {formatAmount(
-                          entry.amountValue,
-                          entry.currencyCode,
-                          entry.currencySymbol,
+                          amountValue,
+                          entry.currency_code,
+                          entry.currency_symbol,
                         )}
                       </Text>
-                      {entry.foreignAmountValue !== null &&
-                        entry.foreignAmountValue !== undefined ? (
+                      {foreignAmountValue !== null &&
+                        foreignAmountValue !== undefined ? (
                         <Tooltip
                           label={formatExchangeRateLabel({
-                            primaryAmount: entry.amountValue,
-                            foreignAmount: entry.foreignAmountValue,
-                            primarySymbol: entry.currencySymbol,
-                            primaryCode: entry.currencyCode,
-                            foreignSymbol: entry.foreignCurrencySymbol,
+                            primaryAmount: amountValue,
+                            foreignAmount: foreignAmountValue,
+                            primarySymbol: entry.currency_symbol,
+                            primaryCode: entry.currency_code,
+                            foreignSymbol: entry.foreign_currency_symbol,
                           })}
                           withArrow
                         >
                           <span style={{ display: "inline-flex" }}>
                             <Text size="xs" c="dimmed">
                               {formatForeignAmount(
-                                entry.foreignAmountValue,
-                                entry.foreignCurrencySymbol,
+                                foreignAmountValue,
+                                entry.foreign_currency_symbol,
                               )}
                             </Text>
                           </span>
@@ -386,8 +386,11 @@ export default function TransactionsTable({
                   </Group>
                   {hasMetaBadges ? (
                     <Group gap="xs" mt="xs" wrap="wrap">
-                      {entry.category ? (
-                        <Tooltip label={`Category: ${entry.category}`} withArrow>
+                      {entry.category_name ? (
+                        <Tooltip
+                          label={`Category: ${entry.category_name}`}
+                          withArrow
+                        >
                           <span style={{ display: "inline-flex" }}>
                             <Badge
                               size="sm"
@@ -396,13 +399,16 @@ export default function TransactionsTable({
                               style={{ textTransform: "none" }}
                               leftSection={<IconFolder size={14} aria-hidden="true" />}
                             >
-                              {entry.category}
+                              {entry.category_name}
                             </Badge>
                           </span>
                         </Tooltip>
                       ) : null}
-                      {entry.budget ? (
-                        <Tooltip label={`Budget: ${entry.budget}`} withArrow>
+                      {entry.budget_name ? (
+                        <Tooltip
+                          label={`Budget: ${entry.budget_name}`}
+                          withArrow
+                        >
                           <span style={{ display: "inline-flex" }}>
                             <Badge
                               size="sm"
@@ -411,14 +417,14 @@ export default function TransactionsTable({
                               style={{ textTransform: "none" }}
                               leftSection={<IconCoins size={14} aria-hidden="true" />}
                             >
-                              {entry.budget}
+                              {entry.budget_name}
                             </Badge>
                           </span>
                         </Tooltip>
                       ) : null}
-                      {entry.tags?.map((tag, index) => (
+                      {entry.tags?.map((tag, tagIndex) => (
                         <Tooltip
-                          key={`${entry.id}-tag-${tag}-${index}`}
+                          key={`${rowKey}-tag-${tag}-${tagIndex}`}
                           label={`Label: ${tag}`}
                           withArrow
                         >
@@ -452,8 +458,15 @@ export default function TransactionsTable({
               </TableTr>
             </TableThead>
             <TableTbody>
-              {rows.map((entry) => (
-                <TableTr key={entry.id}>
+              {rows.map((entry, index) => {
+                const rowKey = transactionKey(entry, index);
+                const amountValue = parseAmount(entry.amount);
+                const foreignAmountValue = entry.foreign_amount
+                  ? parseAmount(entry.foreign_amount)
+                  : null;
+
+                return (
+                <TableTr key={rowKey}>
                   <TableTd>
                     <Group gap="xs" align="center">
                       <Tooltip label={formatTransactionType(entry.type)} withArrow>
@@ -462,12 +475,15 @@ export default function TransactionsTable({
                         </span>
                       </Tooltip>
                       <Text fw={600} size="sm">
-                        {entry.title}
+                        {entry.description || "Untitled expense"}
                       </Text>
                     </Group>
                     <Group gap="xs" mt={6} wrap="wrap">
-                      {entry.category ? (
-                        <Tooltip label={`Category: ${entry.category}`} withArrow>
+                      {entry.category_name ? (
+                        <Tooltip
+                          label={`Category: ${entry.category_name}`}
+                          withArrow
+                        >
                           <span style={{ display: "inline-flex" }}>
                             <Badge
                               size="md"
@@ -476,13 +492,16 @@ export default function TransactionsTable({
                               style={{ textTransform: "none" }}
                               leftSection={<IconFolder size={14} aria-hidden="true" />}
                             >
-                              {entry.category}
+                              {entry.category_name}
                             </Badge>
                           </span>
                         </Tooltip>
                       ) : null}
-                      {entry.budget ? (
-                        <Tooltip label={`Budget: ${entry.budget}`} withArrow>
+                      {entry.budget_name ? (
+                        <Tooltip
+                          label={`Budget: ${entry.budget_name}`}
+                          withArrow
+                        >
                           <span style={{ display: "inline-flex" }}>
                             <Badge
                               size="md"
@@ -491,14 +510,14 @@ export default function TransactionsTable({
                               style={{ textTransform: "none" }}
                               leftSection={<IconCoins size={14} aria-hidden="true" />}
                             >
-                              {entry.budget}
+                              {entry.budget_name}
                             </Badge>
                           </span>
                         </Tooltip>
                       ) : null}
-                      {entry.tags?.map((tag, index) => (
+                      {entry.tags?.map((tag, tagIndex) => (
                         <Tooltip
-                          key={`${entry.id}-tag-${tag}-${index}`}
+                          key={`${rowKey}-tag-${tag}-${tagIndex}`}
                           label={`Label: ${tag}`}
                           withArrow
                         >
@@ -533,28 +552,28 @@ export default function TransactionsTable({
                     <Stack gap={2} align="flex-end">
                       <Text fw={600} size="sm">
                         {formatAmount(
-                          entry.amountValue,
-                          entry.currencyCode,
-                          entry.currencySymbol,
+                          amountValue,
+                          entry.currency_code,
+                          entry.currency_symbol,
                         )}
                       </Text>
-                      {entry.foreignAmountValue !== null &&
-                        entry.foreignAmountValue !== undefined ? (
+                      {foreignAmountValue !== null &&
+                        foreignAmountValue !== undefined ? (
                         <Tooltip
                           label={formatExchangeRateLabel({
-                            primaryAmount: entry.amountValue,
-                            foreignAmount: entry.foreignAmountValue,
-                            primarySymbol: entry.currencySymbol,
-                            primaryCode: entry.currencyCode,
-                            foreignSymbol: entry.foreignCurrencySymbol,
+                            primaryAmount: amountValue,
+                            foreignAmount: foreignAmountValue,
+                            primarySymbol: entry.currency_symbol,
+                            primaryCode: entry.currency_code,
+                            foreignSymbol: entry.foreign_currency_symbol,
                           })}
                           withArrow
                         >
                           <span style={{ display: "inline-flex" }}>
                             <Text size="xs" c="dimmed">
                               {formatForeignAmount(
-                                entry.foreignAmountValue,
-                                entry.foreignCurrencySymbol,
+                                foreignAmountValue,
+                                entry.foreign_currency_symbol,
                               )}
                             </Text>
                           </span>
@@ -563,7 +582,8 @@ export default function TransactionsTable({
                     </Stack>
                   </TableTd>
                 </TableTr>
-              ))}
+                );
+              })}
             </TableTbody>
           </Table>
         )

@@ -1,6 +1,5 @@
 import { Container } from "@mantine/core";
 import TransactionsPanel from "../components/TransactionsPanel";
-import type { TransactionRow } from "../components/TransactionsTable";
 import {
   fetchAccounts,
   fetchCategories,
@@ -9,7 +8,8 @@ import {
   type AccountRead,
   type CategoryRead,
   type TagRead,
-  type TransactionArray,
+  type TransactionSplit,
+  type TransactionTypeFilter,
 } from "../lib/firefly";
 
 const DAYS_30 = 30;
@@ -45,65 +45,21 @@ function buildToken(key: string, value: string) {
   return `${key}:${formatSearchValue(value)}`;
 }
 
-function parseDifferenceAmount(value?: string | null) {
-  const amount = Math.abs(Number.parseFloat(value ?? "0"));
-  return Number.isNaN(amount) ? 0 : amount;
-}
-
-function buildTransactionRows(response: TransactionArray): TransactionRow[] {
-  return (
-    response.data?.flatMap((item) => {
-      const groupTitle = item.attributes.group_title;
-      return item.attributes.transactions.map((split, index) => {
-        const amountValue = parseDifferenceAmount(split.amount);
-        const foreignAmountValue = split.foreign_amount
-          ? parseDifferenceAmount(split.foreign_amount)
-          : null;
-        return {
-          id: `${item.id}-${index}`,
-          title: groupTitle || split.description || "Untitled expense",
-          date: split.date,
-          amountValue,
-          currencyCode: split.currency_code,
-          currencySymbol: split.currency_symbol,
-          foreignAmountValue,
-          foreignCurrencySymbol: split.foreign_currency_symbol,
-          type: split.type,
-          source: split.source_name,
-          destination: split.destination_name,
-          category: split.category_name,
-          budget: split.budget_name,
-          tags: split.tags,
-        };
-      });
-    }) ?? []
-  );
-}
+type TransactionsSearchParams = {
+  type?: TransactionTypeFilter;
+  preset?: "last-30-days" | "last-90-days" | "all-data" | "month";
+  month?: string;
+  account?: AccountRead["id"];
+  categories?: CategoryRead["id"];
+  labels?: TagRead["attributes"]["tag"];
+  page?: string;
+  limit?: string;
+};
 
 export default async function TransactionsPage({
   searchParams,
 }: {
-  searchParams?:
-    | {
-        type?: string;
-        preset?: string;
-        month?: string;
-        account?: string;
-        categories?: string;
-        labels?: string;
-        page?: string;
-        limit?: string;
-      }
-    | Promise<{
-        type?: string;
-        preset?: string;
-        month?: string;
-        account?: string;
-        categories?: string;
-        labels?: string;
-        page?: string;
-        limit?: string;
-      }>;
+  searchParams?: TransactionsSearchParams | Promise<TransactionsSearchParams>;
 }) {
   const endDate = new Date();
   const resolvedSearchParams = await Promise.resolve(searchParams);
@@ -150,7 +106,7 @@ export default async function TransactionsPage({
     presetMonth = formatDateOnly(startDate).slice(0, 7);
   }
 
-  let entries: TransactionRow[] = [];
+  let entries: TransactionSplit[] = [];
   let totalPages = 1;
   let totalMatches: number | null = null;
   let accounts: AccountRead[] = [];
@@ -207,10 +163,12 @@ export default async function TransactionsPage({
       ),
     );
 
-    const entryMap = new Map<string, TransactionRow>();
+    const entryMap = new Map<string, TransactionSplit>();
     searchResponses.forEach((response) => {
-      buildTransactionRows(response).forEach((entry) => {
-        entryMap.set(entry.id, entry);
+      response.data?.forEach((item) => {
+        item.attributes.transactions.forEach((split, index) => {
+          entryMap.set(`${item.id}-${index}`, split);
+        });
       });
     });
 

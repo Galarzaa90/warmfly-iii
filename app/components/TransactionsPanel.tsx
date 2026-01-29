@@ -6,14 +6,15 @@ import { useRouter } from "next/navigation";
 import DateRangeFilter from "./DateRangeFilter";
 import TransactionsFilters from "./TransactionsFilters";
 import TransactionsPagination from "./TransactionsPagination";
-import TransactionsTable, { type TransactionRow } from "./TransactionsTable";
+import TransactionsTable from "./TransactionsTable";
 import TypeFilter from "./TypeFilter";
+import { type TransactionSplit, TransactionTypeFilter } from "../lib/firefly";
 
 type Option = { value: string; label: string };
 
 type Props = {
   basePath?: string;
-  requestedType: string;
+  requestedType: TransactionTypeFilter;
   dateRangeValue: string;
   accountOptions: Option[];
   categoryOptions: Option[];
@@ -21,7 +22,7 @@ type Props = {
   accountValue: string | null;
   categoryValue: string | null;
   labelValue: string | null;
-  entries: TransactionRow[];
+  entries: TransactionSplit[];
   totalMatches: number | null;
   page: number;
   totalPages: number;

@@ -3,9 +3,10 @@
 import { Loader, Select } from "@mantine/core";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo } from "react";
+import { TransactionTypeFilter } from "../lib/firefly";
 
 type TypeFilterProps = {
-  value: string;
+  value: TransactionTypeFilter;
   isLoading?: boolean;
   onNavigate?: (url: string) => void;
 };
