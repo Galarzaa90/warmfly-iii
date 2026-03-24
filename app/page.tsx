@@ -19,11 +19,17 @@ const DAYS_90 = 90;
 const ALL_DATA_START = new Date(1970, 0, 1);
 const CATEGORY_COLORS = [
   "#22c55e",
-  "#38bdf8",
-  "#f97316",
-  "#a78bfa",
-  "#f43f5e",
+  "#ef4444",
+  "#3b82f6",
+  "#f59e0b",
+  "#8b5cf6",
   "#eab308",
+  "#14b8a6",
+  "#ec4899",
+  "#f97316",
+  "#6366f1",
+  "#84cc16",
+  "#06b6d4",
 ];
 const TRANSACTION_TYPE_FILTERS = new Set<TransactionTypeFilter>([
   "all",
@@ -228,29 +234,13 @@ export default async function Home({
   const categoryEntries = Array.from(byCategory.entries()).sort(
     (a, b) => b[1] - a[1],
   );
-  const topCategories = categoryEntries.slice(0, 5);
+  const topCategories = categoryEntries.slice(0, 10);
   const otherTotal = categoryEntries
-    .slice(5)
+    .slice(10)
     .reduce((sum, [, value]) => sum + value, 0);
   const categorySlices = otherTotal
     ? [...topCategories, ["Other", otherTotal] as [string, number]]
     : topCategories;
-  const categoryTotal = categorySlices.reduce((sum, [, value]) => sum + value, 0);
-  const pieStops = categorySlices.reduce(
-    (acc, [, value], index) => {
-      const start = acc.offset;
-      const slice = categoryTotal > 0 ? (value / categoryTotal) * 360 : 0;
-      const end = start + slice;
-      acc.offset = end;
-      acc.stops.push(
-        `${CATEGORY_COLORS[index % CATEGORY_COLORS.length]} ${start.toFixed(
-          2,
-        )}deg ${end.toFixed(2)}deg`,
-      );
-      return acc;
-    },
-    { offset: 0, stops: [] as string[] },
-  );
   const budgetsWithLimits = budgets
     .map((budget) => {
       const spentEntry = budget.attributes.spent?.[0];
@@ -305,7 +295,6 @@ export default async function Home({
         sortedTransferTotals={sortedTransferTotals}
         primaryCurrency={primaryCurrency}
         categorySlices={categorySlices}
-        pieStops={pieStops.stops}
         categoryColors={CATEGORY_COLORS}
         budgetsWithLimits={budgetsWithLimits}
         errorMessage={errorMessage}

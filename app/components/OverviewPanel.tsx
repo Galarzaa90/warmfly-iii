@@ -13,8 +13,15 @@ import {
   Stack,
   Text,
 } from "@mantine/core";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
 import DateRangeFilter from "./DateRangeFilter";
 import TransactionsTable from "./TransactionsTable";
 import type { InsightTotalEntry, TransactionSplit } from "../lib/firefly";
@@ -42,7 +49,6 @@ type Props = {
   sortedTransferTotals: InsightTotalEntry[];
   primaryCurrency?: string | null;
   categorySlices: [string, number][];
-  pieStops: string[];
   categoryColors: string[];
   budgetsWithLimits: BudgetWithLimit[];
   errorMessage?: string | null;
@@ -81,46 +87,34 @@ export default function OverviewPanel({
   sortedTransferTotals,
   primaryCurrency,
   categorySlices,
-  pieStops,
   categoryColors,
   budgetsWithLimits,
   errorMessage,
 }: Props) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = useState(false);
-
-  const resetKey = useMemo(
-    () =>
-      [
-        dateRangeValue,
-        recentExpenses.length,
-        budgetsWithLimits.length,
-        sortedIncomeTotals.length,
-        sortedExpenseTotals.length,
-        sortedTransferTotals.length,
-        categorySlices.length,
-      ].join("|"),
-    [
-      dateRangeValue,
-      recentExpenses.length,
-      budgetsWithLimits.length,
-      sortedIncomeTotals.length,
-      sortedExpenseTotals.length,
-      sortedTransferTotals.length,
-      categorySlices.length,
-    ],
-  );
-
-  useEffect(() => {
-    setIsLoading(false);
-  }, [resetKey]);
+  const [isLoading, startTransition] = useTransition();
 
   const handleNavigate = useCallback(
     (url: string) => {
-      setIsLoading(true);
-      router.push(url);
+      startTransition(() => {
+        router.push(url);
+      });
     },
-    [router],
+    [router, startTransition],
+  );
+
+  const categoryChartData = useMemo(
+    () =>
+      categorySlices.map(([name, value], index) => ({
+        name,
+        value,
+        color: categoryColors[index % categoryColors.length],
+      })),
+    [categoryColors, categorySlices],
+  );
+  const categoryTotal = useMemo(
+    () => categoryChartData.reduce((sum, entry) => sum + entry.value, 0),
+    [categoryChartData],
   );
 
   return (
@@ -374,35 +368,66 @@ export default function OverviewPanel({
                 </Text>
               ) : (
                 <Stack gap="md">
-                  <div
-                    style={{
-                      width: "100%",
-                      maxWidth: 220,
-                      aspectRatio: "1 / 1",
-                      margin: "0 auto",
-                      borderRadius: "50%",
-                      background: `conic-gradient(${pieStops.join(", ")})`,
-                      border: "1px solid var(--app-border)",
-                    }}
-                  />
+                  <div style={{ width: "100%", height: 280 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart margin={{ top: 12, right: 12, bottom: 12, left: 12 }}>
+                        <Pie
+                          data={categoryChartData}
+                          dataKey="value"
+                          nameKey="name"
+                          cx="50%"
+                          cy="50%"
+                          outerRadius="88%"
+                        >
+                          {categoryChartData.map((entry) => (
+                            <Cell key={entry.name} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          formatter={(value: number) =>
+                            formatAmount(value, primaryCurrency)
+                          }
+                          contentStyle={{
+                            backgroundColor: "var(--app-panel-strong)",
+                            border: "1px solid var(--app-border)",
+                            borderRadius: "12px",
+                          }}
+                          itemStyle={{ color: "var(--mantine-color-text)" }}
+                          labelStyle={{ color: "var(--mantine-color-text)" }}
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                   <Stack gap={8}>
-                    {categorySlices.map(([name, value], index) => (
-                      <Group key={name} justify="space-between" gap="sm">
-                        <Group gap="xs">
+                    {categoryChartData.map((entry) => (
+                      <Group
+                        key={entry.name}
+                        justify="space-between"
+                        align="center"
+                        gap="sm"
+                        wrap="nowrap"
+                      >
+                        <Group gap="xs" wrap="nowrap">
                           <span
                             style={{
                               width: 10,
                               height: 10,
+                              minWidth: 10,
                               borderRadius: "50%",
-                              backgroundColor:
-                                categoryColors[index % categoryColors.length],
+                              backgroundColor: entry.color,
                               display: "inline-block",
                             }}
                           />
-                          <Text size="sm">{name}</Text>
+                          <Text size="sm">
+                            {entry.name} (
+                            {categoryTotal > 0
+                              ? `${Math.round((entry.value / categoryTotal) * 100)}%`
+                              : "0%"}
+                            )
+                          </Text>
                         </Group>
-                        <Text size="sm" fw={600}>
-                          {formatAmount(value, primaryCurrency)}
+                        <Text size="sm" ta="right">
+                          {formatAmount(entry.value, primaryCurrency)}
                         </Text>
                       </Group>
                     ))}
