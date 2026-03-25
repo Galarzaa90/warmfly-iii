@@ -227,9 +227,7 @@ function AccountBadges({
   }
 
   const accountName = normalizeAccountName(
-    entry.type === "deposit" || entry.type === "income"
-      ? entry.destination_name
-      : entry.source_name,
+    entry.type === "deposit" ? entry.destination_name : entry.source_name,
   );
 
   return (

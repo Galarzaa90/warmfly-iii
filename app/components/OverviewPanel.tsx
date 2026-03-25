@@ -384,9 +384,16 @@ export default function OverviewPanel({
                           ))}
                         </Pie>
                         <Tooltip
-                          formatter={(value: number) =>
-                            formatAmount(value, primaryCurrency)
-                          }
+                          formatter={(value) => {
+                            const numericValue = Array.isArray(value)
+                              ? Number(value[0] ?? 0)
+                              : Number(value ?? 0);
+
+                            return formatAmount(
+                              Number.isFinite(numericValue) ? numericValue : 0,
+                              primaryCurrency,
+                            );
+                          }}
                           contentStyle={{
                             backgroundColor: "var(--app-panel-strong)",
                             border: "1px solid var(--app-border)",
