@@ -25,6 +25,7 @@ export default function NavLinks({ gap = 16 }: Props) {
 
   const overviewHref = `/${queryString}`;
   const transactionsHref = `/transactions${queryString}`;
+  const reportsHref = "/reports";
 
   return (
     <div style={{ display: "flex", gap }}>
@@ -36,6 +37,9 @@ export default function NavLinks({ gap = 16 }: Props) {
         style={{ color: "inherit", textDecoration: "none" }}
       >
         Transactions
+      </Link>
+      <Link href={reportsHref} style={{ color: "inherit", textDecoration: "none" }}>
+        Reports
       </Link>
     </div>
   );

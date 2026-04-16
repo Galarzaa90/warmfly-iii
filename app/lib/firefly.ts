@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+type FireflyRequestOptions = {
+  cacheSeconds?: number;
+};
+
 const TransactionTypePropertySchema = z.enum([
   'withdrawal',
   'deposit',
@@ -193,6 +197,7 @@ const AccountPropertiesSchema = z.looseObject({
   primary_currency_code: z.string().optional(),
   primary_currency_symbol: z.string().optional(),
   primary_currency_decimal_places: z.number().int().optional(),
+  credit_card_type: z.string().nullable().optional(),
 });
 export type AccountProperties = z.infer<typeof AccountPropertiesSchema>;
 
@@ -284,6 +289,7 @@ export async function fireflyApi<Schema extends z.ZodTypeAny>(
   path: string,
   schema: Schema,
   params?: Record<string, string | number | boolean | null | undefined>,
+  requestOptions?: FireflyRequestOptions,
 ): Promise<z.infer<Schema>> {
   const baseUrl = cleanBaseUrl(
     requireEnv(process.env.FIREFLY_III_BASE_URL, 'FIREFLY_III_BASE_URL'),
@@ -300,12 +306,15 @@ export async function fireflyApi<Schema extends z.ZodTypeAny>(
 
   console.log(`[firefly] GET ${url.pathname}${url.search}`);
 
+  const cacheSeconds = requestOptions?.cacheSeconds;
   const response = await fetch(url.toString(), {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.api+json',
     },
-    cache: 'no-store',
+    ...(cacheSeconds > 0
+      ? { next: { revalidate: cacheSeconds } }
+      : { cache: 'no-store' as const }),
   });
 
   const payload = await response.text();
@@ -357,12 +366,15 @@ export type TransactionParams = z.infer<typeof TransactionParamsSchema>;
 /**
  * List all the user's transactions.
  */
-export async function fetchTransactions(params: TransactionParams = {}): Promise<TransactionArray> {
+export async function fetchTransactions(
+  params: TransactionParams = {},
+  requestOptions?: FireflyRequestOptions,
+): Promise<TransactionArray> {
   const { type } = params;
   return fireflyApi('/v1/transactions', TransactionArraySchema, {
     ...params,
     type: type === 'all' ? undefined : type,
-  });
+  }, requestOptions);
 }
 
 export async function searchTransactions({
@@ -395,10 +407,10 @@ export async function fetchBudgets({
   });
 }
 
-export async function fetchAccounts(): Promise<AccountArray> {
+export async function fetchAccounts(requestOptions?: FireflyRequestOptions): Promise<AccountArray> {
   return fireflyApi('/v1/accounts', AccountArraySchema, {
     limit: 200,
-  });
+  }, requestOptions);
 }
 
 export async function fetchCategories(): Promise<CategoryArray> {
