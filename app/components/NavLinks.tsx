@@ -25,6 +25,8 @@ export default function NavLinks({ gap = 16 }: Props) {
 
   const overviewHref = `/${queryString}`;
   const transactionsHref = `/transactions${queryString}`;
+  const tagsHref = `/tags${queryString}`;
+  const categoriesHref = `/categories${queryString}`;
   const reportsHref = "/reports";
 
   return (
@@ -37,6 +39,15 @@ export default function NavLinks({ gap = 16 }: Props) {
         style={{ color: "inherit", textDecoration: "none" }}
       >
         Transactions
+      </Link>
+      <Link href={tagsHref} style={{ color: "inherit", textDecoration: "none" }}>
+        Tags
+      </Link>
+      <Link
+        href={categoriesHref}
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        Categories
       </Link>
       <Link href={reportsHref} style={{ color: "inherit", textDecoration: "none" }}>
         Reports

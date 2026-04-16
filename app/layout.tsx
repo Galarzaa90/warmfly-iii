@@ -83,6 +83,8 @@ export default function RootLayout({
                     <div style={{ display: "flex", gap: 16 }}>
                       <span>Overview</span>
                       <span>Transactions</span>
+                      <span>Tags</span>
+                      <span>Categories</span>
                       <span>Reports</span>
                     </div>
                   }
