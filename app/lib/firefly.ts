@@ -307,12 +307,13 @@ export async function fireflyApi<Schema extends z.ZodTypeAny>(
   console.log(`[firefly] GET ${url.pathname}${url.search}`);
 
   const cacheSeconds = requestOptions?.cacheSeconds;
+  const shouldUseRevalidate = typeof cacheSeconds === 'number' && cacheSeconds > 0;
   const response = await fetch(url.toString(), {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/vnd.api+json',
     },
-    ...(cacheSeconds > 0
+    ...(shouldUseRevalidate
       ? { next: { revalidate: cacheSeconds } }
       : { cache: 'no-store' as const }),
   });
