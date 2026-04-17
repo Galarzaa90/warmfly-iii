@@ -47,6 +47,7 @@ export default async function MonthlyReportPage({
       startDate={startDate}
       endDate={endDate}
       cacheSeconds={60}
+      timelineGranularity="day"
       breadcrumbs={[
         { label: "Reports", href: "/reports" },
         { label: String(year), href: `/reports/${year}` },

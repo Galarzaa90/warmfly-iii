@@ -11,6 +11,7 @@ import {
 } from "@mantine/core";
 import TransactionsTable from "../components/TransactionsTable";
 import ReportPieCard from "../components/ReportPieCard";
+import ReportBalanceTimelineCard from "../components/ReportBalanceTimelineCard";
 import {
   fetchAccounts,
   fetchTransactions,
@@ -33,6 +34,16 @@ type Props = {
   endDate: Date;
   breadcrumbs: BreadcrumbItem[];
   cacheSeconds: number;
+  timelineGranularity: "day" | "month";
+};
+
+type TimelinePoint = {
+  key: string;
+  label: string;
+  periodLabel: string;
+  net: number;
+  value: number;
+  color: string;
 };
 
 function formatMoney(amount: number, currencyCode: string) {
@@ -110,6 +121,118 @@ function balanceColor(amount: number): "green" | "red" | undefined {
   if (amount > 0) return "green";
   if (amount < 0) return "red";
   return undefined;
+}
+
+function formatDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function formatMonthKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function pickTimelineCurrency(entries: TransactionSplit[]) {
+  const byCurrency = new Map<string, number>();
+  entries.forEach((entry) => {
+    if (entry.type !== "deposit" && entry.type !== "withdrawal") return;
+    const currency = entry.currency_code;
+    if (!currency) return;
+    const amount = Math.abs(Number.parseFloat(entry.amount ?? "0"));
+    if (Number.isNaN(amount) || amount <= 0) return;
+    byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + amount);
+  });
+
+  let selected: string | null = null;
+  let maxAmount = -1;
+  byCurrency.forEach((amount, currency) => {
+    if (amount > maxAmount) {
+      maxAmount = amount;
+      selected = currency;
+    }
+  });
+
+  return selected;
+}
+
+function buildTimelineData({
+  entries,
+  startDate,
+  endDate,
+  granularity,
+  currencyCode,
+}: {
+  entries: TransactionSplit[];
+  startDate: Date;
+  endDate: Date;
+  granularity: "day" | "month";
+  currencyCode?: string | null;
+}) {
+  const periods = new Map<string, TimelinePoint>();
+  const pointer = new Date(startDate);
+
+  if (granularity === "day") {
+    while (pointer <= endDate) {
+      const key = formatDateKey(pointer);
+      periods.set(key, {
+        key,
+        label: String(pointer.getDate()),
+        periodLabel: new Intl.DateTimeFormat("en-US", {
+          month: "short",
+          day: "numeric",
+          year: "numeric",
+        }).format(pointer),
+        net: 0,
+        value: 0,
+        color: "#22c55e",
+      });
+      pointer.setDate(pointer.getDate() + 1);
+    }
+  } else {
+    while (pointer <= endDate) {
+      const key = formatMonthKey(pointer);
+      periods.set(key, {
+        key,
+        label: new Intl.DateTimeFormat("en-US", { month: "short" }).format(pointer),
+        periodLabel: new Intl.DateTimeFormat("en-US", {
+          month: "long",
+          year: "numeric",
+        }).format(pointer),
+        net: 0,
+        value: 0,
+        color: "#22c55e",
+      });
+      pointer.setMonth(pointer.getMonth() + 1);
+    }
+  }
+
+  entries.forEach((entry) => {
+    if (entry.type !== "deposit" && entry.type !== "withdrawal") return;
+    if (currencyCode && entry.currency_code !== currencyCode) return;
+
+    const amount = Math.abs(Number.parseFloat(entry.amount ?? "0"));
+    if (Number.isNaN(amount) || amount <= 0) return;
+
+    const key =
+      granularity === "day" ? formatDateKey(entry.date) : formatMonthKey(entry.date);
+    const current = periods.get(key);
+    if (!current) return;
+
+    current.net += entry.type === "deposit" ? amount : -amount;
+  });
+
+  return Array.from(periods.values()).map((item) => {
+    const isPositive = item.net >= 0;
+    return {
+      ...item,
+      value: Math.abs(item.net),
+      color: isPositive ? "#22c55e" : "#ef4444",
+    };
+  });
 }
 
 function buildTopExpenseCategories(entries: TransactionSplit[]) {
@@ -190,6 +313,7 @@ export default async function ReportView({
   endDate,
   breadcrumbs,
   cacheSeconds,
+  timelineGranularity,
 }: Props) {
   const start = formatDateOnly(startDate);
   const end = formatDateOnly(endDate);
@@ -245,6 +369,14 @@ export default async function ReportView({
   });
   const topCashCategories = buildTopExpenseCategories(cashExpenseEntries);
   const topCreditCategories = buildTopExpenseCategories(creditExpenseEntries);
+  const timelineCurrency = pickTimelineCurrency(reportEntries);
+  const timelineData = buildTimelineData({
+    entries: reportEntries,
+    startDate,
+    endDate,
+    granularity: timelineGranularity,
+    currencyCode: timelineCurrency,
+  });
 
   return (
     <Container size="xl" py="xl">
@@ -490,6 +622,12 @@ export default async function ReportView({
             emptyLabel="No credit expense categories found for this period."
           />
         </SimpleGrid>
+
+        <ReportBalanceTimelineCard
+          title="Income vs expense balance timeline"
+          data={timelineData}
+          currencyCode={timelineCurrency}
+        />
 
         <Card
           padding="lg"
