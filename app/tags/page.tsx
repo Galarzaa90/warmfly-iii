@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Card, Container, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { fetchTags } from "../lib/firefly";
 
+export const dynamic = "force-dynamic";
+
 export default async function TagsLandingPage() {
   const response = await fetchTags();
   const tags = (response.data ?? [])

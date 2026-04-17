@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import {
   Badge,
   Card,
@@ -315,6 +316,8 @@ export default async function ReportView({
   cacheSeconds,
   timelineGranularity,
 }: Props) {
+  await connection();
+
   const start = formatDateOnly(startDate);
   const end = formatDateOnly(endDate);
 

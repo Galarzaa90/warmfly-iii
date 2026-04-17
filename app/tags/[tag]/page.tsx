@@ -8,6 +8,8 @@ import {
 } from "../../lib/firefly";
 import { groupTotalsByCurrency } from "../../lib/reports";
 
+export const dynamic = "force-dynamic";
+
 const DAYS_30 = 30;
 const DAYS_90 = 90;
 const ALL_DATA_START = new Date(1970, 0, 1);
@@ -186,4 +188,3 @@ export default async function TagDetailsPage({
     </Container>
   );
 }
-

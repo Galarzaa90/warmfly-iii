@@ -2,6 +2,8 @@ import Link from "next/link";
 import { Card, Container, SimpleGrid, Stack, Text, Title } from "@mantine/core";
 import { fetchCategories } from "../lib/firefly";
 
+export const dynamic = "force-dynamic";
+
 export default async function CategoriesLandingPage() {
   const response = await fetchCategories();
   const categories = (response.data ?? []).sort((a, b) =>
