@@ -3,10 +3,13 @@ import TransactionsPanel from "../components/TransactionsPanel";
 import {
   fetchAccounts,
   fetchCategories,
+  fetchCurrencies,
+  fetchDefaultCurrency,
   searchTransactions,
   fetchTags,
   type AccountRead,
   type CategoryRead,
+  type CurrencyRead,
   type TagRead,
   type TransactionSplit,
   type TransactionTypeFilter,
@@ -113,17 +116,29 @@ export default async function TransactionsPage({
   let totalMatches: number | null = null;
   let accounts: AccountRead[] = [];
   let categories: CategoryRead[] = [];
+  let currencies: CurrencyRead[] = [];
+  let primaryCurrency: CurrencyRead | null = null;
   let labels: TagRead[] = [];
   let errorMessage: string | null = null;
 
   try {
-    const [accountsResponse, categoriesResponse, tagsResponse] = await Promise.all([
+    const [
+      accountsResponse,
+      categoriesResponse,
+      currenciesResponse,
+      defaultCurrencyResponse,
+      tagsResponse,
+    ] = await Promise.all([
       fetchAccounts(),
       fetchCategories(),
+      fetchCurrencies(),
+      fetchDefaultCurrency(),
       fetchTags(),
     ]);
     accounts = accountsResponse.data ?? [];
     categories = categoriesResponse.data ?? [];
+    currencies = currenciesResponse.data ?? [];
+    primaryCurrency = defaultCurrencyResponse.data ?? null;
     labels = tagsResponse.data ?? [];
 
     const categoryNameById = new Map(
@@ -224,6 +239,25 @@ export default async function TransactionsPage({
           value: tag.attributes.tag,
           label: tag.attributes.tag,
         }))}
+        currencyOptions={currencies
+          .filter(
+            (currency) =>
+              currency.attributes.enabled !== false &&
+              currency.attributes.code !== primaryCurrency?.attributes.code,
+          )
+          .map((currency) => ({
+            value: currency.attributes.code,
+            label: `${currency.attributes.code} - ${currency.attributes.name}`,
+          }))}
+        primaryCurrency={
+          primaryCurrency
+            ? {
+                code: primaryCurrency.attributes.code,
+                name: primaryCurrency.attributes.name,
+                symbol: primaryCurrency.attributes.symbol,
+              }
+            : null
+        }
         accountValue={accountFilter || null}
         categoryValue={categorySelection || null}
         labelValue={labelSelection || null}

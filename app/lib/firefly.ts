@@ -83,6 +83,11 @@ const TransactionReadSchema = z.looseObject({
 });
 export type TransactionRead = z.infer<typeof TransactionReadSchema>;
 
+const TransactionSingleSchema = z.looseObject({
+  data: TransactionReadSchema,
+});
+export type TransactionSingle = z.infer<typeof TransactionSingleSchema>;
+
 const TransactionArraySchema = z.looseObject({
   data: z.array(TransactionReadSchema),
   meta: MetaSchema,
@@ -214,6 +219,33 @@ const AccountArraySchema = z.looseObject({
 });
 export type AccountArray = z.infer<typeof AccountArraySchema>;
 
+const CurrencyPropertiesSchema = z.looseObject({
+  code: z.string(),
+  name: z.string(),
+  symbol: z.string().optional(),
+  enabled: z.boolean().optional(),
+  decimal_places: z.number().int().optional(),
+});
+export type CurrencyProperties = z.infer<typeof CurrencyPropertiesSchema>;
+
+const CurrencyReadSchema = z.looseObject({
+  type: z.string(),
+  id: z.string(),
+  attributes: CurrencyPropertiesSchema,
+});
+export type CurrencyRead = z.infer<typeof CurrencyReadSchema>;
+
+const CurrencyArraySchema = z.looseObject({
+  data: z.array(CurrencyReadSchema),
+  meta: MetaSchema,
+});
+export type CurrencyArray = z.infer<typeof CurrencyArraySchema>;
+
+const CurrencySingleSchema = z.looseObject({
+  data: CurrencyReadSchema,
+});
+export type CurrencySingle = z.infer<typeof CurrencySingleSchema>;
+
 const CategoryPropertiesSchema = z.looseObject({
   name: z.string(),
   created_at: z.coerce.date().optional(),
@@ -274,6 +306,20 @@ const TagArraySchema = z.looseObject({
 });
 export type TagArray = z.infer<typeof TagArraySchema>;
 
+const AutocompleteItemSchema = z.looseObject({
+  id: z.union([z.string(), z.number()]).optional(),
+  name: z.string().optional(),
+  value: z.string().optional(),
+  description: z.string().optional(),
+  title: z.string().optional(),
+});
+type AutocompleteItem = z.infer<typeof AutocompleteItemSchema>;
+
+const AutocompleteArraySchema = z.union([
+  z.array(AutocompleteItemSchema),
+  z.looseObject({ data: z.array(AutocompleteItemSchema) }),
+]);
+
 function requireEnv(value: string | undefined, key: string) {
   if (!value) {
     throw new Error(`${key} is not set.`);
@@ -316,6 +362,50 @@ export async function fireflyApi<Schema extends z.ZodTypeAny>(
     ...(shouldUseRevalidate
       ? { next: { revalidate: cacheSeconds } }
       : { cache: 'no-store' as const }),
+  });
+
+  const payload = await response.text();
+
+  if (!response.ok) {
+    throw new Error(`Firefly API error: ${response.status} ${response.statusText}. ${payload}`);
+  }
+
+  let parsed: unknown;
+  if (payload) {
+    try {
+      parsed = JSON.parse(payload);
+    } catch (error) {
+      throw new Error(
+        `Failed to parse Firefly API response from ${url.toString()}: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  return schema.parse(parsed);
+}
+
+async function fireflyMutation<Schema extends z.ZodTypeAny>(
+  path: string,
+  schema: Schema,
+  body: unknown,
+): Promise<z.infer<Schema>> {
+  const baseUrl = cleanBaseUrl(
+    requireEnv(process.env.FIREFLY_III_BASE_URL, 'FIREFLY_III_BASE_URL'),
+  );
+  const token = requireEnv(process.env.FIREFLY_III_API_TOKEN, 'FIREFLY_III_API_TOKEN');
+  const url = new URL(`${baseUrl}${path}`);
+
+  console.log(`[firefly] POST ${url.pathname}`);
+
+  const response = await fetch(url.toString(), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.api+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+    cache: 'no-store',
   });
 
   const payload = await response.text();
@@ -394,6 +484,66 @@ export async function searchTransactions({
   });
 }
 
+function autocompleteLabel(item: AutocompleteItem) {
+  const label =
+    item.name ?? item.description ?? item.value ?? item.title ?? item.id?.toString();
+  return label?.trim() ?? "";
+}
+
+export async function fetchTransactionDescriptionAutocomplete(
+  query: string,
+): Promise<string[]> {
+  const response = await fireflyApi('/v1/autocomplete/transactions', AutocompleteArraySchema, {
+    query,
+  });
+  const items = Array.isArray(response) ? response : response.data;
+  const seen = new Set<string>();
+
+  return items.flatMap((item) => {
+    const label = autocompleteLabel(item);
+    const key = label.toLowerCase();
+    if (!label || seen.has(key)) return [];
+    seen.add(key);
+    return [label];
+  });
+}
+
+export type TransactionStoreType = Extract<
+  TransactionTypeProperty,
+  'withdrawal' | 'deposit' | 'transfer'
+>;
+
+export type TransactionSplitStoreInput = {
+  type: TransactionStoreType;
+  date: string;
+  amount: string;
+  description: string;
+  source_id?: string;
+  source_name?: string;
+  destination_id?: string;
+  destination_name?: string;
+  foreign_amount?: string;
+  foreign_currency_code?: string;
+  category_id?: string;
+  category_name?: string;
+  tags?: string[];
+  notes?: string;
+};
+
+export async function createTransaction({
+  transaction,
+  applyRules = true,
+}: {
+  transaction: TransactionSplitStoreInput;
+  applyRules?: boolean;
+}): Promise<TransactionSingle> {
+  return fireflyMutation('/v1/transactions', TransactionSingleSchema, {
+    apply_rules: applyRules,
+    fire_webhooks: true,
+    transactions: [transaction],
+  });
+}
+
 export async function fetchBudgets({
   start,
   end,
@@ -412,6 +562,16 @@ export async function fetchAccounts(requestOptions?: FireflyRequestOptions): Pro
   return fireflyApi('/v1/accounts', AccountArraySchema, {
     limit: 200,
   }, requestOptions);
+}
+
+export async function fetchCurrencies(): Promise<CurrencyArray> {
+  return fireflyApi('/v1/currencies', CurrencyArraySchema, {
+    limit: 200,
+  });
+}
+
+export async function fetchDefaultCurrency(): Promise<CurrencySingle> {
+  return fireflyApi('/v1/currencies/default', CurrencySingleSchema);
 }
 
 export async function fetchCategories(): Promise<CategoryArray> {

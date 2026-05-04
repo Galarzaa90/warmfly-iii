@@ -4,6 +4,7 @@ import { Badge, Card, Group, Paper, Stack, Text } from "@mantine/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import DateRangeFilter from "./DateRangeFilter";
+import AddTransactionButton from "./AddTransactionButton";
 import TransactionsFilters from "./TransactionsFilters";
 import TransactionsPagination from "./TransactionsPagination";
 import TransactionsTable from "./TransactionsTable";
@@ -11,6 +12,7 @@ import TypeFilter from "./TypeFilter";
 import { type TransactionSplit, TransactionTypeFilter } from "../lib/firefly";
 
 type Option = { value: string; label: string };
+type PrimaryCurrency = { code: string; name: string; symbol?: string } | null;
 
 type Props = {
   basePath?: string;
@@ -19,6 +21,8 @@ type Props = {
   accountOptions: Option[];
   categoryOptions: Option[];
   labelOptions: Option[];
+  currencyOptions: Option[];
+  primaryCurrency: PrimaryCurrency;
   accountValue: string | null;
   categoryValue: string | null;
   labelValue: string | null;
@@ -37,6 +41,8 @@ export default function TransactionsPanel({
   accountOptions,
   categoryOptions,
   labelOptions,
+  currencyOptions,
+  primaryCurrency,
   accountValue,
   categoryValue,
   labelValue,
@@ -73,7 +79,8 @@ export default function TransactionsPanel({
   );
 
   useEffect(() => {
-    setIsLoading(false);
+    const resetLoading = window.setTimeout(() => setIsLoading(false), 0);
+    return () => window.clearTimeout(resetLoading);
   }, [resetKey, entries]);
 
   const handleNavigate = useCallback(
@@ -86,6 +93,14 @@ export default function TransactionsPanel({
 
   return (
     <Stack gap="xl">
+      <AddTransactionButton
+        accountOptions={accountOptions}
+        categoryOptions={categoryOptions}
+        labelOptions={labelOptions}
+        currencyOptions={currencyOptions}
+        primaryCurrency={primaryCurrency}
+      />
+
       <Group gap="md" align="center" wrap="wrap">
         <TypeFilter
           value={requestedType ?? "all"}
