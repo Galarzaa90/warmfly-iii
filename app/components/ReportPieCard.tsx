@@ -26,7 +26,17 @@ const CHART_COLORS = [
   "#ec4899",
   "#f97316",
   "#6366f1",
+  "#84cc16",
+  "#06b6d4",
 ];
+
+const OTHER_COLOR = "#94a3b8";
+
+function getChartColor(entry: PieDatum, index: number) {
+  if (entry.name === "Other") return OTHER_COLOR;
+
+  return CHART_COLORS[index % CHART_COLORS.length];
+}
 
 function formatAmount(amount: number, currencyCode?: string | null) {
   if (currencyCode) {
@@ -78,7 +88,7 @@ export default function ReportPieCard({
                   {data.map((entry, index) => (
                     <Cell
                       key={`${entry.name}-${index}`}
-                      fill={CHART_COLORS[index % CHART_COLORS.length]}
+                      fill={getChartColor(entry, index)}
                     />
                   ))}
                 </Pie>
@@ -106,7 +116,7 @@ export default function ReportPieCard({
           </div>
           <Stack gap={8}>
             {data.map((entry, index) => {
-              const color = CHART_COLORS[index % CHART_COLORS.length];
+              const color = getChartColor(entry, index);
               const percentage = total > 0 ? Math.round((entry.value / total) * 100) : 0;
 
               return (
