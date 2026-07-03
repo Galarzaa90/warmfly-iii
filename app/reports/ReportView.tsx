@@ -237,6 +237,7 @@ function buildTimelineData({
 }
 
 function buildTopExpenseCategories(entries: TransactionSplit[]) {
+  const maxVisibleCategories = 10;
   const totalsByCategory = new Map<string, number>();
   const currencyCodes = new Set<string>();
 
@@ -251,10 +252,16 @@ function buildTopExpenseCategories(entries: TransactionSplit[]) {
     if (entry.currency_code) currencyCodes.add(entry.currency_code);
   });
 
-  const data = Array.from(totalsByCategory.entries())
+  const categoryEntries = Array.from(totalsByCategory.entries())
     .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
+    .sort((a, b) => b.value - a.value);
+  const topCategories = categoryEntries.slice(0, maxVisibleCategories);
+  const otherTotal = categoryEntries
+    .slice(maxVisibleCategories)
+    .reduce((sum, entry) => sum + entry.value, 0);
+  const data = otherTotal
+    ? [...topCategories, { name: "Other", value: otherTotal }]
+    : topCategories;
 
   const currencyCode = currencyCodes.size === 1 ? Array.from(currencyCodes)[0] : null;
   return { data, currencyCode };
@@ -613,13 +620,13 @@ export default async function ReportView({
 
         <SimpleGrid cols={{ base: 1, lg: 2 }}>
           <ReportPieCard
-            title="Top 5 cash expense categories"
+            title="Top 10 cash expense categories"
             data={topCashCategories.data}
             currencyCode={topCashCategories.currencyCode}
             emptyLabel="No cash expense categories found for this period."
           />
           <ReportPieCard
-            title="Top 5 credit expense categories"
+            title="Top 10 credit expense categories"
             data={topCreditCategories.data}
             currencyCode={topCreditCategories.currencyCode}
             emptyLabel="No credit expense categories found for this period."
